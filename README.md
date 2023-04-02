@@ -15,16 +15,16 @@ A free, open-source, community-driven, speedy, stable, self-hosted, Discord bot.
 ```bash
 sudo apt install libsqlite3-dev -y
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
 ```
+After installing rustup (line 2), run `rustup default nightly`.
+Then, compile and install Tara.
 
 ## Arch, Manjaro, etc.
 
 ```bash
 sudo pacman -S sqlite
 ```
-
-After installing rustup (line 2), run `rustup default nightly`.
-Then, [compile and install Tara](#with-cargo-install).
 
 # Installation
 
