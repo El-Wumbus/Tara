@@ -40,8 +40,8 @@ pub enum Error
     #[error("JSONParseError: {0}")]
     JsonParse(String),
 
-    #[error("WikipedaSearch: {0}")]
-    WikipedaSearch(wikipedia_api::WikiError),
+    #[error("WikipedaSearch: Page not found for \"{0}\"")]
+    WikipedaSearch(String),
 
     #[error("DatabaseOpenError: {0}")]
     DatabaseOpen(r2d2::Error),

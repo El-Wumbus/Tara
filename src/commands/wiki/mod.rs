@@ -13,6 +13,8 @@ use truncrate::TruncateToBoundary;
 use super::DiscordCommand;
 use crate::{config, Error, Result};
 
+mod api;
+
 pub static COMMAND: Wiki = Wiki;
 
 #[derive(Clone, Copy, Debug)]
@@ -49,7 +51,7 @@ impl DiscordCommand for Wiki
         databases: Arc<crate::database::Databases>,
     ) -> Result<String>
     {
-        use wikipedia_api::Page;
+        use api::Page;
         let mut title = String::new();
 
         for option in &command.data.options {
@@ -67,16 +69,10 @@ impl DiscordCommand for Wiki
             }
         }
 
-        let page = match Page::search(&title).await {
-            Ok(x) => x,
-            Err(e) => return Err(Error::WikipedaSearch(e)),
-        };
-        let url = Arc::clone(&page.url);
-        let summary = page.get_summary().await;
-        let mut content = match summary {
-            Ok(x) => x,
-            Err(e) => return Err(Error::WikipedaSearch(e)),
-        };
+        let page = Page::search(&title).await?;
+        let url = &page.url.clone();
+        let summary = page.get_summary();
+        let mut content = summary.await?;
 
         let max = super::core::get_max_content_len(command, &databases)?;
         // Truncate wiki content.

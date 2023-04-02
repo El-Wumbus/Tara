@@ -2018,7 +2018,6 @@ dependencies = [
  "toml",
  "truncrate",
  "urlencoding",
- "wikipedia_api",
 ]
 
 [[package]]
@@ -2539,18 +2538,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c71e40d7d2c34a5106301fb632274ca37242cd0c9d3e64dbece371a40a2d87"
 dependencies = [
  "webpki",
-]
-
-[[package]]
-name = "wikipedia_api"
-version = "0.1.0"
-source = "git+https://github.com/El-Wumbus/wikipedia_api?rev=87b386a8e461601503d9a39c75675fec42a8f4da#87b386a8e461601503d9a39c75675fec42a8f4da"
-dependencies = [
- "log",
- "reqwest",
- "serde",
- "serenity",
- "tokio",
 ]
 
 [[package]]
