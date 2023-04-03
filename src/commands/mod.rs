@@ -17,6 +17,7 @@ use crate::{config, Error, Result};
 mod conversions;
 mod define;
 mod random;
+mod role;
 mod search;
 mod settings;
 pub mod wiki;
@@ -38,6 +39,7 @@ crate::commands::lazy_static! {
             discord_command!(settings::COMMAND),
             discord_command!(conversions::COMMAND),
             discord_command!(search::COMMAND),
+            discord_command!(role::COMMAND),
         ]);
 
     /// Command name to `COMMANDS` index value.
@@ -168,6 +170,10 @@ fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String
 
 pub mod core
 {
+    use std::collections::HashSet;
+
+    use serenity::model::prelude::{GuildId, RoleId};
+
     use super::{once, ApplicationCommandInteraction, Result};
 
     #[once(time = 15, result = true)]
@@ -180,6 +186,11 @@ pub mod core
         // use the default.
         let max = {
             if let Some(guild_id) = command.guild_id {
+                if !databases.contains("guilds", guild_id)? {
+                    // Insert default data
+                    databases.guilds_insert_default(guild_id)?;
+                }
+
                 let connection = databases
                     .guilds
                     .get()
@@ -220,5 +231,29 @@ pub mod core
         }
 
         input.to_owned()
+    }
+
+    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId)
+        -> Result<HashSet<RoleId>>
+    {
+        let connection = databases
+            .guilds
+            .get()
+            .map_err(crate::Error::DatabaseAccessTimeout)?;
+
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT assignable_roles FROM guilds WHERE GuildID={guild_id}"
+            ))
+            .map_err(crate::Error::from)?;
+        let role_names = statement
+            .query_row([], |row| {
+                let bytes: Vec<u8> = row.get(0).unwrap();
+                let value: HashSet<RoleId> = bincode::deserialize(&bytes).unwrap();
+                Ok(value)
+            })
+            .map_err(crate::Error::from)?;
+
+        Ok(role_names)
     }
 }

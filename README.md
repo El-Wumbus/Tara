@@ -41,7 +41,7 @@ Before the bot can be started successfully, it needs to be configured.
 <details>
 <summary>Linux</summary>
 
-> The configuration file is located at `/etc/tara.d/tara.toml`. 
+> The configuration file is located at `/etc/tara.d/tara.toml`.
 
 </details>
 
@@ -84,6 +84,9 @@ Present in all the configuration files are the following keys:
 | `conversions currency`    | Convert from one currency to another. Only enabled when `secrets.currencyApiKey` is set. | Yes            | *NONE*       |
 | `settings set *`          | Set settings for the current guild                                                       | No             | MANAGE_GUILD |
 | `settings view *`         | See current guild settings                                                               | No             | MANAGE_GUILD |
+| `role add`                | Give yourself a self-assignable role                                                     | No             | *NONE*       |
+| `role remove`             | Remove a self-assignable role                                                            | No             | *NONE*       |
+| `role list`               | List all self-assignable roles                                                           | No             | *NONE*       |
 
 [crates.io]: https://crates.io/crates/tara
 [crates.io-badge]: https://img.shields.io/crates/v/tara?logo=Rust&style=flat-square

@@ -15,7 +15,7 @@ use crate::{config, Error, Result};
 
 mod api;
 
-pub static COMMAND: Wiki = Wiki;
+pub const COMMAND: Wiki = Wiki;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Wiki;

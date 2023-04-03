@@ -1,8 +1,8 @@
-use std::{path, sync::Arc};
+use std::{collections::HashSet, path, sync::Arc};
 
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
-use serenity::model::prelude::GuildId;
+use serenity::model::prelude::{GuildId, RoleId};
 use tokio::fs;
 
 use crate::config;
@@ -83,7 +83,7 @@ impl Databases
                     guild_id.as_u64(),
                     crate::commands::wiki::Wiki::DEFAULT_MAX_WIKI_LEN,
                     {
-                        let assignable_roles: Vec<String> = Vec::new();
+                        let assignable_roles: HashSet<RoleId> = HashSet::new();
                         bincode::serialize(&assignable_roles).unwrap()
                     }
                 ],
