@@ -1,10 +1,15 @@
 #![feature(const_trait_impl)]
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
+use chrono::Utc;
 use serenity::{
     async_trait, client,
-    model::prelude::{command::Command, interaction::Interaction, Ready},
+    model::prelude::{
+        command::Command,
+        interaction::{Interaction, InteractionResponseType},
+        Ready, UserId,
+    },
     prelude::*,
     Client,
 };
@@ -41,6 +46,7 @@ async fn main() -> std::result::Result<(), anyhow::Error>
             databases: database::Databases::open(config.clone()).await?,
             config,
             error_messages: error_messages.await,
+            dm_cooldown_counter: Arc::new(Mutex::new(HashMap::new())),
         })
         .await
         .map_err(Error::ClientInitialization)?;
@@ -54,10 +60,12 @@ async fn main() -> std::result::Result<(), anyhow::Error>
 
 struct EventHandler
 {
-    config:         Arc<config::Configuration>,
-    error_messages: Arc<config::ErrorMessages>,
-    databases:      Arc<database::Databases>,
+    config:              Arc<config::Configuration>,
+    error_messages:      Arc<config::ErrorMessages>,
+    databases:           Arc<database::Databases>,
+    dm_cooldown_counter: Arc<Mutex<HashMap<UserId, chrono::DateTime<Utc>>>>,
 }
+
 
 #[async_trait]
 impl client::EventHandler for EventHandler
@@ -65,22 +73,45 @@ impl client::EventHandler for EventHandler
     async fn interaction_create(&self, context: Context, interaction: Interaction)
     {
         if let Interaction::ApplicationCommand(command) = interaction {
-            let mut guild = String::from("UNKNOWN");
-            if let Some(g) = command.guild_id {
-                if let Ok(g) = g.to_partial_guild(&context.http).await {
-                    guild = format!("{} ({})", g.name, g.id);
+            // Assume we're in a DM
+            if command.guild_id.is_none() {
+                use chrono::{Duration, Utc};
+                let uid = command.user.id;
+                let now = Utc::now();
+                let mut counter = self.dm_cooldown_counter.lock().await;
+
+                // If cooldown counter contains this User ID
+                if let Some(end) = counter.get(&uid) {
+                    // If the ending time is in the future
+                    if now < *end {
+                        // Report error & return
+                        if let Err(e) = command
+                            .create_interaction_response(&context.http, |response| {
+                                response
+                                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                                    .interaction_response_data(|message| {
+                                        message.ephemeral(true);
+                                        message.content(Error::DirectMessageCooldown(*end - now).to_string())
+                                    })
+                            })
+                            .await
+                        {
+                            log::error!("Couldn't respond to command: {e}");
+                        }
+                        return;
+                    }
+                    else {
+                        // Remove the cooldown entry from the hashmap
+                        let _ = counter.remove(&uid);
+                    }
+                }
+                else if let Some(cooldown_len) = self.config.direct_message_cooldown {
+                    let cooldown_len = Duration::from_std(cooldown_len).unwrap();
+                    // Calculate the ending time and add it to the counter.
+                    counter.insert(uid, now + cooldown_len);
                 }
             }
 
-            let mut user = String::from("UNKNOWN");
-            if let Some(m) = command.member.clone() {
-                user = format!("{} ({})", m.user.name, m.user.id);
-            }
-
-            log::info!(
-                "Running command '{}' in guild '{guild}' for user '{user}'",
-                command.data.name
-            );
             commands::run_command(
                 context,
                 command,

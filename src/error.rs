@@ -11,9 +11,11 @@ pub enum Error
     #[error("IOError: {0}")]
     Io(tokio::io::Error),
 
+    /// There's no configuration file to parse.
     #[error("MissingConfigurationFile: {0}")]
     MissingConfigurationFile(String),
 
+    /// Configuration parsing failed
     #[error("ConfigurationParseError: \"{}\": {error}", path.display())]
     ConfigurationParse
     {
@@ -71,16 +73,14 @@ pub enum Error
         "InappropriateSearchError: Attempted to search for sexual or profane content using term \"{0}\""
     )]
     InappropriateSearch(String),
+
+    #[error("DirectMessageCooldown: Cooldown should end in {0}")]
+    DirectMessageCooldown(chrono::Duration),
 }
 
 impl Error
 {
-    pub fn report(&self) -> &Self
-    {
-        log::error!("{self}");
-        self
-    }
-
+    /// Return a hex-formatted error code associated with the error
     pub fn code(&self) -> String
     {
         let n = match self {
@@ -103,6 +103,7 @@ impl Error
             Error::FeatureDisabled(_) => 16,
             Error::NoSearchResults(_) => 17,
             Error::InappropriateSearch(_) => 18,
+            Error::DirectMessageCooldown(_) => 19,
         };
 
         format!("0x{n:02X}")

@@ -111,7 +111,7 @@ pub async fn run_command(
     }
 }
 
-async fn notify_user_of_error(
+pub async fn notify_user_of_error(
     e: Error,
     http: &Http,
     command: &ApplicationCommandInteraction,
@@ -205,16 +205,20 @@ pub mod core
         Ok(max)
     }
 
+    /// Remove any suffixes found in `suffixes` from the input string.
     #[must_use]
-    pub fn strip_suffixes(mut input: String, suffixes: &[&str]) -> String
+    pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String
     {
+        let input_bytes = input.as_bytes();
+        let mut suffix_bytes: &[u8];
+
         for suffix in suffixes {
-            input = match input.strip_suffix(suffix) {
-                Some(input) => input,
-                None => &input,
+            suffix_bytes = suffix.as_bytes();
+            if let Some(input_without_suffix) = input_bytes.strip_suffix(suffix_bytes) {
+                return String::from_utf8_lossy(input_without_suffix).into_owned();
             }
-            .to_string();
         }
-        input
+
+        input.to_owned()
     }
 }

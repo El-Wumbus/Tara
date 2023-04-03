@@ -103,24 +103,26 @@ structstruck::strike! {
     }
 }
 
+/// Get the definition(s) for the provided `word`.
+///
+/// # Errors
+///
+/// Will return errors when
+///
+/// - An HTTP request fails
+/// - An API returns invalid or unexpected JSON
 async fn get_word_definition(word: String) -> Result<String>
 {
-    // Replace spaces with %20 for the url
     let word_ = urlencoding::encode(word.to_lowercase().trim()).to_string();
-
     let request_url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{word_}");
 
     // Make the API call, parse the json to a `Page`.
     if let Ok(words) = {
-        match reqwest::get(&request_url).await {
-            Ok(x) => {
-                log::info!("Requested '{}'", request_url);
-                x
-            }
-            Err(e) => return Err(Error::HttpRequest(e)),
-        }
-        .json::<Words>()
-        .await
+        reqwest::get(&request_url)
+            .await
+            .map_err(Error::HttpRequest)?
+            .json::<Words>()
+            .await
     } {
         let mut buf = String::new();
         for meaning in &words[0].meanings {

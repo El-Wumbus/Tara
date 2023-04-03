@@ -165,6 +165,7 @@ impl Databases
     }
 }
 
+/// Get the guild database path
 #[inline]
 fn guild_database_path(config: &config::Configuration) -> path::PathBuf
 {
