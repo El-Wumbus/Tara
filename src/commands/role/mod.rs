@@ -104,7 +104,7 @@ impl DiscordCommand for RoleCMD
                 member
                     .add_role(&context.http, role.id)
                     .await
-                    .map_err(Error::UnableToSetUserRole)?;
+                    .map_err(Error::UserRole)?;
 
                 return Ok(format!("Added {}", role.name));
             }
@@ -122,7 +122,7 @@ impl DiscordCommand for RoleCMD
                 member
                     .remove_role(&context.http, role.id)
                     .await
-                    .map_err(Error::UnableToSetUserRole)?;
+                    .map_err(Error::UserRole)?;
 
                 return Ok(format!("Added {}", role.name));
             }
