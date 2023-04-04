@@ -16,8 +16,6 @@ lto = "thin"
 [profile.dist]
 inherits = "release"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tokio = { version = "1.27.0", features = ["macros", "rt-multi-thread"] }
 serenity = { default-features = false, features = ["client", "gateway", "model", "rustls_backend"], version = "0.11"}
