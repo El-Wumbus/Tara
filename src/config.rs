@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::{database, Error, Result};
+use crate::{Error, Result};
 
 /// Configurations required to host the bot
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -74,7 +74,7 @@ impl Default for Configuration
     {
         Self {
             secrets:                 ConfigurationSecrets::default(),
-            databases_path:          Some(std::path::PathBuf::from(database::DEFAULT_DATABASE_DIRECTORY)),
+            databases_path:          None,
             random_error_message:    ConfigurationRandomErrorMessages::Boolean(true),
             direct_message_cooldown: Some(std::time::Duration::from_secs(Self::DEFAULT_DM_COOLDOWN_LEN)),
         }

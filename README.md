@@ -38,11 +38,29 @@ If your desired platform isn't seen below, please [open an issue][issues].
 2. **Configure**
 
 Before the bot can be started successfully, it needs to be configured.
+The file's content's should be the same regardless of operating system, but the location in the file system will be different.
 
 <details>
 <summary>Linux</summary>
 
-> The configuration file is located at `/etc/tara.d/tara.toml`.
+> Tara looks for a configuration file in this order:
+>
+> 1. `$XDG_CONFIG_HOME/Tara/tara.toml` or `$HOME/.config/Tara/tara.toml`
+> 2. `/etc/tara.d/tara.toml`
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
+> Tara's configuration file is located here: `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/tara.toml`
+
+</details>
+
+<details>
+<summary>Windows</summary>
+
+> Tara's configuration file is located here: `%APPDATA%\Tara\config\tara.toml`
 
 </details>
 
@@ -59,7 +77,7 @@ token = "<DISCORD_TOKEN>"
 currencyApiKey = "<CURRENCYAPI.COM>" # Optional
 ```
 
-Present in all the configuration files are the following keys:
+All accepted keys:
 
 - *`direct_message_cooldown`* - This optional key is to set the minimum duration, in seconds, to allow between running commands in a direct message. The default is `3`.
 

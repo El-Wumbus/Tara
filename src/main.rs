@@ -20,6 +20,7 @@ pub use error::*;
 mod commands;
 mod config;
 mod database;
+mod paths;
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), anyhow::Error>
@@ -29,7 +30,7 @@ async fn main() -> std::result::Result<(), anyhow::Error>
     log::info!("Initialized Logger");
 
     // Get the configuration file path and read the configuration from it.
-    let config_path = get_config_dir()?;
+    let config_path = paths::config_file_path()?;
     let config = Arc::new(config::Configuration::from_toml(&config_path).await?);
     log::info!("Loaded configuration from \"{}\"", config_path.display());
 
@@ -161,35 +162,6 @@ impl client::EventHandler for EventHandler
     }
 }
 
-
-/// Returns a configuration file after checking some of the default locations.
-///
-/// # Usage
-///
-/// ```Rust
-/// let path = get_config_dir().unwrap();
-/// ```
-///
-/// # Errors
-///
-/// Returns an `Error` when:
-///
-/// - No configuration file is found
-fn get_config_dir() -> Result<std::path::PathBuf>
-{
-    const DEFAULT_CONFIG_FILE: &str = "/etc/tara.d/tara.toml";
-
-    let file = std::path::PathBuf::from(DEFAULT_CONFIG_FILE);
-    if file.is_file() {
-        Ok(file)
-    }
-    else {
-        Err(Error::MissingConfigurationFile(format!(
-            "No configuration file found. Checked the following:\n{}",
-            file.display()
-        )))
-    }
-}
 
 /// Returns a structure of error message responses from and `error_message` file
 /// possibly specified in `config`.
