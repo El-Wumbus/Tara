@@ -56,7 +56,7 @@ jobs:
       - name: Install cargo-dist
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.3/cargo-dist-v0.0.3-installer.sh | sh
       - name: Install dependencies
-        run: apt install libsqlite3-dev -y
+        run: sudo apt install libsqlite3-dev -y
       - id: create-release
         run: |
           cargo dist manifest --tag=${{ github.ref_name }} --artifacts=all --no-local-paths --output-format=json > dist-manifest.json
