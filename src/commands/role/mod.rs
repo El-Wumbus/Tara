@@ -88,7 +88,7 @@ impl DiscordCommand for RoleCMD
                     .collect::<Vec<&str>>()
                     .join(",");
 
-                return Ok(format!("Self-assignable roles:\n>{roles}"));
+                return Ok(format!("Self-assignable roles:\n> {roles}"));
             }
 
             "add" => {
