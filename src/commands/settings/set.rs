@@ -64,14 +64,14 @@ pub fn update_self_assignable_role(
         let mut self_assignable_roles = super::super::core::get_role_ids(databases, guild_id)?;
         let name = role.name.clone();
         if remove {
-            if !self_assignable_roles.remove(&role.id) {
+            if !self_assignable_roles.remove(role.id.as_u64()) {
                 return Err(crate::Error::CommandMisuse(format!(
                     "Role \"{name}\" is **not** part of the *Self-assignable roles* list"
                 )));
             }
         }
         else {
-            self_assignable_roles.insert(role.id);
+            self_assignable_roles.insert(*role.id.as_u64());
         }
 
         // Insert data

@@ -172,7 +172,7 @@ pub mod core
 {
     use std::collections::HashSet;
 
-    use serenity::model::prelude::{GuildId, RoleId};
+    use serenity::model::prelude::GuildId;
 
     use super::{once, ApplicationCommandInteraction, Result};
 
@@ -233,8 +233,7 @@ pub mod core
         input.to_owned()
     }
 
-    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId)
-        -> Result<HashSet<RoleId>>
+    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId) -> Result<HashSet<u64>>
     {
         let connection = databases
             .guilds
@@ -249,7 +248,7 @@ pub mod core
         let role_names = statement
             .query_row([], |row| {
                 let bytes: Vec<u8> = row.get(0).unwrap();
-                let value: HashSet<RoleId> = bincode::deserialize(&bytes).unwrap();
+                let value: HashSet<u64> = bincode::deserialize(&bytes).unwrap();
                 Ok(value)
             })
             .map_err(crate::Error::from)?;
