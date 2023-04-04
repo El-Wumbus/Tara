@@ -3,6 +3,7 @@
 # Tara
 
 [![crates.io][crates.io-badge]][crates.io]
+[![github-license][github-license-badge]][github-license]
 
 Tara is a new, free, open-source self-hostable, Discord bot.
 
@@ -90,6 +91,8 @@ Present in all the configuration files are the following keys:
 
 [crates.io]: https://crates.io/crates/tara
 [crates.io-badge]: https://img.shields.io/crates/v/tara?logo=Rust&style=flat-square
+[github-license]: https://github.com/El-Wumbus/Tara/blob/master/LICENSE
+[github-license-badge]: https://img.shields.io/github/license/El-Wumbus/Tara?logo=Apache&style=flat-square
 [issues]: https://github.com/El-Wumbus/Tara/issues/new
 [discord-getting-started]: https://discord.com/developers/docs/getting-started
 [currencyapi]: https://currencyapi.com/
