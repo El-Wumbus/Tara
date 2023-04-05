@@ -5,8 +5,6 @@ use rusqlite::params;
 use serenity::model::prelude::{GuildId, RoleId};
 use tokio::fs;
 
-use crate::config;
-
 #[derive(Debug)]
 pub struct Databases
 {
@@ -27,10 +25,10 @@ impl Databases
     /// # Errors
     ///
     /// Fails if call to `Self::data_open` fails.
-    pub async fn open(config: Arc<config::Configuration>) -> crate::Result<Arc<Self>>
+    pub async fn open() -> crate::Result<Arc<Self>>
     {
         Ok(Arc::new(Self {
-            guilds: Self::data_open(config).await?,
+            guilds: Self::data_open().await?,
         }))
     }
 
@@ -124,11 +122,9 @@ impl Databases
     ///
     /// - An IO error occurs when trying to create the database.
     /// - A database error occurs when creating the database.
-    async fn data_open(
-        config: Arc<config::Configuration>,
-    ) -> crate::Result<r2d2::Pool<SqliteConnectionManager>>
+    async fn data_open() -> crate::Result<r2d2::Pool<SqliteConnectionManager>>
     {
-        let database_path = guild_database_path(&config)?;
+        let database_path = guild_database_path()?;
         fs::create_dir_all(database_path.parent().unwrap())
             .await
             .map_err(crate::Error::Io)?;
@@ -166,11 +162,7 @@ impl Databases
 
 /// Get the guild database path
 #[inline]
-fn guild_database_path(config: &config::Configuration) -> crate::Result<path::PathBuf>
+fn guild_database_path() -> crate::Result<path::PathBuf>
 {
-    Ok(config
-        .databases_path
-        .clone()
-        .unwrap_or(crate::paths::database_directory()?)
-        .join("guildSettings.sqlite"))
+    Ok(crate::paths::database_directory()?.join("guildSettings.sqlite"))
 }

@@ -19,7 +19,7 @@ mod defaults
 }
 
 #[inline]
-fn project_dir() -> Option<directories::ProjectDirs>
+pub fn project_dir() -> Option<directories::ProjectDirs>
 {
     directories::ProjectDirs::from("com.github", "El-Wumbus", "Tara")
 }

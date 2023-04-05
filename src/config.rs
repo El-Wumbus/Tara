@@ -13,7 +13,6 @@ pub struct Configuration
     #[serde_as(as = "serde_with::DurationSeconds<i64>")]
     pub direct_message_cooldown: Option<std::time::Duration>,
     pub random_error_message:    ConfigurationRandomErrorMessages,
-    pub databases_path:          Option<std::path::PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -74,7 +73,6 @@ impl Default for Configuration
     {
         Self {
             secrets:                 ConfigurationSecrets::default(),
-            databases_path:          None,
             random_error_message:    ConfigurationRandomErrorMessages::Boolean(true),
             direct_message_cooldown: Some(std::time::Duration::from_secs(Self::DEFAULT_DM_COOLDOWN_LEN)),
         }

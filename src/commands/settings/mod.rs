@@ -12,7 +12,6 @@ use serenity::{
 };
 
 use super::DiscordCommand;
-use crate::database::Databases;
 
 
 mod set;
@@ -101,12 +100,11 @@ impl DiscordCommand for Settings
         &self,
         _context: &Context,
         command: &ApplicationCommandInteraction,
-        config: Arc<crate::config::Configuration>,
-        _databases: Arc<crate::database::Databases>,
+        _config: Arc<crate::config::Configuration>,
+        databases: Arc<crate::database::Databases>,
     ) -> crate::Result<String>
     {
         let option = &command.data.options[0];
-        let databases = Databases::open(config).await?;
         match &*option.name {
             "set" => {
                 let option = &option.options[0];

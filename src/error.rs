@@ -23,6 +23,13 @@ pub enum Error
         error: toml::de::Error,
     },
 
+    #[error("ConfigurationSaveError: \"{}\": {error}", path.display())]
+    ConfigurationSave
+    {
+        path:  std::path::PathBuf,
+        error: toml::ser::Error,
+    },
+
     #[error("MessageParseError: \"{}\": {error}", path.display())]
     MessageParse
     {
@@ -85,6 +92,9 @@ pub enum Error
 
     #[error("DatabaseFileError: Couldn't find anywhere to open or create a database.")]
     DatabaseFile,
+
+    #[error("ReadLineError: {0}")]
+    ReadLine(rustyline::error::ReadlineError),
 }
 
 impl Error
@@ -116,6 +126,8 @@ impl Error
             Error::RoleNotAssignable(_) => 20,
             Error::UserRole(_) => 21,
             Error::DatabaseFile => 22,
+            Error::ReadLine(_) => 23,
+            Error::ConfigurationSave { .. } => 24,
         };
 
         format!("0x{n:02X}")
