@@ -105,8 +105,6 @@ pub struct ErrorMessages
 
 impl ErrorMessages
 {
-    pub const DEFAULT_FILE: &str = "/etc/tara.d/error_messages.json";
-
     /// Read an `ErrorMessages` from JSON located at `path`.
     ///
     /// # Usage

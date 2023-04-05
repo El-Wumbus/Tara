@@ -3,16 +3,26 @@ use std::path;
 use crate::{Error, Result};
 
 #[cfg(target_os = "linux")]
-pub const FALLBACK_DATABASE_DIRECTORY: &str = "/var/db/tara/";
-
-#[cfg(target_os = "linux")]
-pub const FALLBACK_CONFIG_FILE: &str = "/etc/tara.d/tara.toml";
+mod defaults
+{
+    pub const FALLBACK_DATABASE_DIRECTORY: &str = "/var/db/tara/";
+    pub const FALLBACK_CONFIG_FILE: &str = "/etc/tara.d/tara.toml";
+    pub const FALLBACK_ERROR_MESSAGES_FILE: &str = "/etc/tara.d/error_messages.json";
+}
 
 #[cfg(not(target_os = "linux"))]
-pub const FALLBACK_CONFIG_FILE: &str = "";
+mod defaults
+{
+    pub const FALLBACK_CONFIG_FILE: &str = "";
+    pub const FALLBACK_DATABASE_DIRECTORY: &str = "";
+    pub const FALLBACK_ERROR_MESSAGES_FILE: &str = "";
+}
 
-#[cfg(not(target_os = "linux"))]
-pub const FALLBACK_DATABASE_DIRECTORY: &str = "";
+#[inline]
+fn project_dir() -> Option<directories::ProjectDirs>
+{
+    directories::ProjectDirs::from("com.github", "El-Wumbus", "Tara")
+}
 
 /// Returns a configuration file after checking some of the default locations.
 ///
@@ -40,27 +50,18 @@ pub const FALLBACK_DATABASE_DIRECTORY: &str = "";
 /// - No configuration file is found
 pub fn config_file_path() -> Result<path::PathBuf>
 {
-    use directories::ProjectDirs;
-    let file = if let Some(project_dirs) = ProjectDirs::from("com.github", "El-Wumbus", "Tara") {
-        let x = project_dirs.config_dir().join("tara.toml");
-        if !x.is_file() {
-            path::PathBuf::from(FALLBACK_CONFIG_FILE)
-        }
-        else {
-            x
-        }
+    let mut paths = Vec::with_capacity(2);
+    if let Some(project_dirs) = project_dir() {
+        paths.push(project_dirs.config_dir().join("tara.toml"));
     }
-    else if !FALLBACK_CONFIG_FILE.is_empty() {
-        path::PathBuf::from(FALLBACK_CONFIG_FILE)
+    if !defaults::FALLBACK_CONFIG_FILE.is_empty() {
+        paths.push(path::PathBuf::from(defaults::FALLBACK_CONFIG_FILE))
     }
-    else {
-        return Err(Error::MissingConfigurationFile);
-    };
 
-    if !file.is_file() {
-        return Err(Error::MissingConfigurationFile);
+    match paths.into_iter().find(|path| path.is_file()) {
+        None => Err(Error::MissingConfigurationFile),
+        Some(x) => Ok(x),
     }
-    Ok(file)
 }
 
 /// Returns a configuration file after checking some of the default locations.
@@ -89,16 +90,48 @@ pub fn config_file_path() -> Result<path::PathBuf>
 /// - No configuration file is found
 pub fn database_directory() -> Result<path::PathBuf>
 {
-    use directories::ProjectDirs;
-    let dir = if let Some(project_dirs) = ProjectDirs::from("com.github", "El-Wumbus", "Tara") {
-        path::PathBuf::from(project_dirs.data_dir())
+    let mut paths = Vec::with_capacity(2);
+    if let Some(project_dirs) = project_dir() {
+        paths.push(path::PathBuf::from(project_dirs.data_dir()));
     }
-    else if !FALLBACK_DATABASE_DIRECTORY.is_empty() {
-        path::PathBuf::from(FALLBACK_DATABASE_DIRECTORY)
+    if !defaults::FALLBACK_DATABASE_DIRECTORY.is_empty() {
+        paths.push(path::PathBuf::from(defaults::FALLBACK_DATABASE_DIRECTORY))
     }
-    else {
-        return Err(Error::DatabaseFile);
-    };
 
-    Ok(dir)
+    match paths.into_iter().find(|path| path.is_dir()) {
+        None => Err(Error::DatabaseFile),
+        Some(x) => Ok(x),
+    }
+}
+
+/// Returns a configuration file after checking some of the default locations.
+///
+/// # File Locations
+///
+/// The lower the number, before it checks.
+///
+/// ## Linux
+///
+/// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or `$HOME/.config/Tara/error_messages.json`
+/// 2. `/etc/tara.d/error_messages.json`
+///
+/// ## MacOS
+///
+/// 1. `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/error_messages.json`
+///
+/// ## Windows
+///
+/// 1. `%APPDATA%\Tara\config\error_messages.json`
+///
+pub fn error_messages_file_path() -> Option<path::PathBuf>
+{
+    let mut paths = Vec::with_capacity(2);
+    if let Some(project_dirs) = project_dir() {
+        paths.push(project_dirs.config_dir().join("error_messages.json"));
+    }
+    if !defaults::FALLBACK_ERROR_MESSAGES_FILE.is_empty() {
+        paths.push(path::PathBuf::from(defaults::FALLBACK_ERROR_MESSAGES_FILE))
+    }
+
+    paths.into_iter().find(|path| path.is_file())
 }

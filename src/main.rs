@@ -180,21 +180,9 @@ async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::
             if *x {
                 // Load from the default location, if not possible fall back to the default
                 // messages.
-                match config::ErrorMessages::from_json(config::ErrorMessages::DEFAULT_FILE).await {
-                    Ok(x) => {
-                        log::info!(
-                            "Loaded Error Messages from {}",
-                            config::ErrorMessages::DEFAULT_FILE
-                        );
-                        x
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Couldn't load error messages from \"{}\": {e}. Using defaults.",
-                            config::ErrorMessages::DEFAULT_FILE
-                        );
-                        config::ErrorMessages::default()
-                    }
+                match paths::error_messages_file_path() {
+                    Some(file) => config::ErrorMessages::from_json(file).await.unwrap_or_default(),
+                    None => config::ErrorMessages::default(),
                 }
             }
             else {
@@ -202,19 +190,7 @@ async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::
             }
         }
         config::ConfigurationRandomErrorMessages::Path(path) => {
-            match config::ErrorMessages::from_json(&path).await {
-                Ok(x) => {
-                    log::info!("Loaded Error Messages from {}", path.display());
-                    x
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Couldn't load error messages from \"{}\": {e}. Using defaults.",
-                        path.display()
-                    );
-                    config::ErrorMessages::default()
-                }
-            }
+            config::ErrorMessages::from_json(&path).await.unwrap_or_default()
         }
     })
 }
