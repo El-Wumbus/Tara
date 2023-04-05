@@ -6,7 +6,7 @@
 [![github-release][github-release-badge]][github-release]
 [![github-license][github-license-badge]][github-license]
 
-Tara is a new, free, open-source self-hostable, Discord bot.
+Tara is a modern, free, open-source, self-hostable Discord bot.
 
 Tara works on Linux (with macOS and Windows support coming soon).
 

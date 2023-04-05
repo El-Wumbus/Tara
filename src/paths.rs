@@ -112,8 +112,8 @@ pub fn database_directory() -> Result<path::PathBuf>
 ///
 /// ## Linux
 ///
-/// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or `$HOME/.config/Tara/error_messages.json`
-/// 2. `/etc/tara.d/error_messages.json`
+/// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or
+/// `$HOME/.config/Tara/error_messages.json` 2. `/etc/tara.d/error_messages.json`
 ///
 /// ## MacOS
 ///
@@ -122,7 +122,6 @@ pub fn database_directory() -> Result<path::PathBuf>
 /// ## Windows
 ///
 /// 1. `%APPDATA%\Tara\config\error_messages.json`
-///
 pub fn error_messages_file_path() -> Option<path::PathBuf>
 {
     let mut paths = Vec::with_capacity(2);

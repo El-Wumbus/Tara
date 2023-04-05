@@ -3,7 +3,7 @@ name = "tara"
 version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "A free, open-source, community-driven, speedy, stable, self-hosted, Discord bot."
+description = "Tara is a modern, free, open-source, self-hostable Discord bot."
 repository = "https://github.com/El-Wumbus/Tara"
 keywords = ["discord", "discord-bot"]
 authors = ["Decator <decator.c@proton.me>"]
@@ -44,6 +44,7 @@ rustrict = { version = "0.7.4", features = ["customize"] }
 anyhow = "1.0.70"
 serde_with = { version = "2.3.1", features = ["chrono"] }
 directories = "5.0.0"
+structopt = { version = "0.3.26", features = ["color", "suggestions"] }
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

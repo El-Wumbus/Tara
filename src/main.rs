@@ -1,6 +1,6 @@
 #![feature(const_trait_impl)]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use chrono::Utc;
 use serenity::{
@@ -13,6 +13,7 @@ use serenity::{
     prelude::*,
     Client,
 };
+use structopt::StructOpt;
 
 mod error;
 pub use error::*;
@@ -22,15 +23,43 @@ mod config;
 mod database;
 mod paths;
 
+const NAME: &str = "Tara";
+const DESCRIPTION: &str = "A modern self-hostable Discord bot.";
+
+#[derive(StructOpt, Debug, Clone)]
+#[structopt(name = NAME, about = DESCRIPTION)]
+enum Options
+{
+    /// Start the discord bot.
+    Daemon
+    {
+        #[structopt(long)]
+        /// Specify a configuration file to use instead of the default.
+        config: Option<PathBuf>,
+    },
+}
+
 #[tokio::main]
 async fn main() -> std::result::Result<(), anyhow::Error>
 {
+    match Options::from_args() {
+        Options::Daemon { config } => daemon(config).await?,
+    }
+
+    Ok(())
+}
+
+async fn daemon(config_path: Option<PathBuf>) -> Result<()>
+{
     // Setup logging
     env_logger::init();
-    log::info!("Initialized Logger");
+    log::info!("Initialized Logging");
 
     // Get the configuration file path and read the configuration from it.
-    let config_path = paths::config_file_path()?;
+    let config_path = match config_path {
+        Some(x) => x,
+        None => paths::config_file_path()?,
+    };
     let config = Arc::new(config::Configuration::from_toml(&config_path).await?);
     log::info!("Loaded configuration from \"{}\"", config_path.display());
 
