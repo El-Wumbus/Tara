@@ -35,6 +35,16 @@ If your desired platform isn't seen below, please [open an issue][issues].
 
 </details>
 
+<details>
+<summary>macOS</summary>
+
+> The recommended way to install Tara is by way of a package manager.
+> | Repository      | Instructions                 |
+> | --------------- | ---------------------------- |
+> | **[crates.io]** | `cargo install tara --locked`|
+
+</details>
+
 2. **Configure**
 
 Before the bot can be started successfully, it needs to be configured.
@@ -54,13 +64,6 @@ The file's content's should be the same regardless of operating system, but the 
 <summary>macOS</summary>
 
 > Tara's configuration file is located here: `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/tara.toml`
-
-</details>
-
-<details>
-<summary>Windows</summary>
-
-> Tara's configuration file is located here: `%APPDATA%\Tara\config\tara.toml`
 
 </details>
 
