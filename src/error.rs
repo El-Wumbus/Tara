@@ -3,8 +3,7 @@ use thiserror::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
-pub enum Error
-{
+pub enum Error {
     #[error("ClientInitializationError: {0}")]
     ClientInitialization(serenity::Error),
 
@@ -17,15 +16,19 @@ pub enum Error
 
     /// Configuration parsing failed
     #[error("ConfigurationParseError: \"{}\": {error}", path.display())]
-    ConfigurationParse
-    {
+    ConfigurationParse {
         path:  std::path::PathBuf,
         error: toml::de::Error,
     },
 
+    #[error("ConfigurationSaveError: \"{}\": {error}", path.display())]
+    ConfigurationSave {
+        path:  std::path::PathBuf,
+        error: toml::ser::Error,
+    },
+
     #[error("MessageParseError: \"{}\": {error}", path.display())]
-    MessageParse
-    {
+    MessageParse {
         path:  std::path::PathBuf,
         error: serde_json::Error,
     },
@@ -85,13 +88,14 @@ pub enum Error
 
     #[error("DatabaseFileError: Couldn't find anywhere to open or create a database.")]
     DatabaseFile,
+
+    #[error("ReadLineError: {0}")]
+    ReadLine(rustyline::error::ReadlineError),
 }
 
-impl Error
-{
+impl Error {
     /// Return a hex-formatted error code associated with the error
-    pub fn code(&self) -> String
-    {
+    pub fn code(&self) -> String {
         let n = match self {
             Error::NoDatabaseRecord => 0,
             Error::ClientInitialization(_) => 1,
@@ -116,13 +120,14 @@ impl Error
             Error::RoleNotAssignable(_) => 20,
             Error::UserRole(_) => 21,
             Error::DatabaseFile => 22,
+            Error::ReadLine(_) => 23,
+            Error::ConfigurationSave { .. } => 24,
         };
 
         format!("0x{n:02X}")
     }
 }
 
-impl From<rusqlite::Error> for Error
-{
+impl From<rusqlite::Error> for Error {
     fn from(value: rusqlite::Error) -> Self { Self::DatabaseAccess(value) }
 }

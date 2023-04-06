@@ -20,16 +20,13 @@ pub const COMMAND: Wiki = Wiki;
 #[derive(Clone, Copy, Debug)]
 pub struct Wiki;
 
-impl Wiki
-{
+impl Wiki {
     pub const DEFAULT_MAX_WIKI_LEN: u32 = 800;
 }
 
 #[async_trait]
-impl DiscordCommand for Wiki
-{
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand
-    {
+impl DiscordCommand for Wiki {
+    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
         command
             .name(self.name())
             .description("Get a summary of a topic from wikipedia.org")
@@ -49,8 +46,7 @@ impl DiscordCommand for Wiki
         command: &ApplicationCommandInteraction,
         _config: Arc<config::Configuration>,
         databases: Arc<crate::database::Databases>,
-    ) -> Result<String>
-    {
+    ) -> Result<String> {
         use api::Page;
         let mut title = String::new();
 

@@ -12,7 +12,6 @@ use serenity::{
 };
 
 use super::DiscordCommand;
-use crate::database::Databases;
 
 
 mod set;
@@ -26,13 +25,11 @@ pub const COMMAND: Settings = Settings;
 pub struct Settings;
 
 #[async_trait]
-impl DiscordCommand for Settings
-{
+impl DiscordCommand for Settings {
     fn register<'a>(
         &'a self,
         command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand
-    {
+    ) -> &mut serenity::builder::CreateApplicationCommand {
         command
             .name(self.name())
             .dm_permission(false)
@@ -101,12 +98,10 @@ impl DiscordCommand for Settings
         &self,
         _context: &Context,
         command: &ApplicationCommandInteraction,
-        config: Arc<crate::config::Configuration>,
-        _databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String>
-    {
+        _config: Arc<crate::config::Configuration>,
+        databases: Arc<crate::database::Databases>,
+    ) -> crate::Result<String> {
         let option = &command.data.options[0];
-        let databases = Databases::open(config).await?;
         match &*option.name {
             "set" => {
                 let option = &option.options[0];

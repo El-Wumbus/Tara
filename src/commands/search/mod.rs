@@ -21,13 +21,11 @@ pub static COMMAND: Search = Search;
 pub struct Search;
 
 #[async_trait]
-impl DiscordCommand for Search
-{
+impl DiscordCommand for Search {
     fn register<'a>(
         &'a self,
         command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand
-    {
+    ) -> &mut serenity::builder::CreateApplicationCommand {
         command
             .name(self.name())
             .description("Search the internet")
@@ -61,8 +59,7 @@ impl DiscordCommand for Search
         command: &ApplicationCommandInteraction,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String>
-    {
+    ) -> crate::Result<String> {
         let option = &command.data.options[0];
         match &*option.name {
             "duckduckgo" => {

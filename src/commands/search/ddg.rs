@@ -6,42 +6,34 @@ use scraper::{Html, Selector};
 use crate::{Error, Result};
 
 #[derive(Clone, Debug, Eq)]
-pub struct SearchResult
-{
+pub struct SearchResult {
     title:   String,
     snippet: String,
 }
 
-impl std::hash::Hash for SearchResult
-{
+impl std::hash::Hash for SearchResult {
     fn hash<H: ~const std::hash::Hasher>(&self, state: &mut H) { self.title.hash(state); }
 }
 
-impl std::cmp::PartialEq for SearchResult
-{
+impl std::cmp::PartialEq for SearchResult {
     fn eq(&self, other: &Self) -> bool { self.title == other.title }
 }
 
-impl std::cmp::PartialOrd for SearchResult
-{
+impl std::cmp::PartialOrd for SearchResult {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { self.title.partial_cmp(&other.title) }
 }
 
-impl std::cmp::Ord for SearchResult
-{
+impl std::cmp::Ord for SearchResult {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.title.cmp(&other.title) }
 }
 
-impl std::fmt::Display for SearchResult
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
+impl std::fmt::Display for SearchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "***{}***\n\t{}\n", self.title, self.snippet)
     }
 }
 
-pub async fn scrape(search_term: &str, result_count: usize) -> Result<(Vec<SearchResult>, String)>
-{
+pub async fn scrape(search_term: &str, result_count: usize) -> Result<(Vec<SearchResult>, String)> {
     use rustrict::Censor;
 
     // If the search term is sexual or profane, we stop here.

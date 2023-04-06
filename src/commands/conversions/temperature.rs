@@ -3,26 +3,22 @@ use std::{fmt, str::FromStr};
 use crate::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Temperature
-{
+pub struct Temperature {
     temp: f64,
     kind: TemperatureUnit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
-enum TemperatureUnit
-{
+enum TemperatureUnit {
     Kelvin,
     Celsius,
     Fahrenheit,
 }
 
-impl FromStr for Temperature
-{
+impl FromStr for Temperature {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err>
-    {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = s.to_lowercase();
         let kind;
         s = match s {
@@ -99,10 +95,8 @@ impl FromStr for Temperature
     }
 }
 
-impl std::fmt::Display for Temperature
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-    {
+impl std::fmt::Display for Temperature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (temp, unit) = match self.kind {
             TemperatureUnit::Kelvin => (self.temp, "Kelvin"),
             TemperatureUnit::Celsius => (self.temp - 273.15, "Celsius"),
@@ -113,29 +107,24 @@ impl std::fmt::Display for Temperature
     }
 }
 
-impl Temperature
-{
-    pub fn as_cel(&mut self) -> &mut Self
-    {
+impl Temperature {
+    pub fn as_cel(&mut self) -> &mut Self {
         self.kind = TemperatureUnit::Celsius;
         self
     }
 
-    pub fn as_kel(&mut self) -> &mut Self
-    {
+    pub fn as_kel(&mut self) -> &mut Self {
         self.kind = TemperatureUnit::Kelvin;
         self
     }
 
-    pub fn as_fah(&mut self) -> &mut Self
-    {
+    pub fn as_fah(&mut self) -> &mut Self {
         self.kind = TemperatureUnit::Fahrenheit;
         self
     }
 }
 
-pub fn convert(input: &str, output: &str) -> crate::Result<String>
-{
+pub fn convert(input: &str, output: &str) -> crate::Result<String> {
     let mut temperature = Temperature::from_str(input)?;
     Ok(match output {
         "k" | "kel" | "kelvin" => temperature.as_kel(),

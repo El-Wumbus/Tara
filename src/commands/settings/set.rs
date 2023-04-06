@@ -9,8 +9,7 @@ pub fn maximum_content_output_chars(
     databases: &Databases,
     option: &CommandDataOption,
     guild_id: GuildId,
-) -> Result<String>
-{
+) -> Result<String> {
     let option = &option.options[0];
 
     // Get the first option (there's only one, and it's required), then get an
@@ -51,8 +50,7 @@ pub fn update_self_assignable_role(
     option: &CommandDataOption,
     guild_id: GuildId,
     remove: bool,
-) -> Result<String>
-{
+) -> Result<String> {
     let option = &option.options[0];
     if let Some(CommandDataOptionValue::Role(role)) = option.resolved.clone() {
         if !databases.contains("guilds", guild_id)? {

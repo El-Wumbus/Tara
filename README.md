@@ -6,9 +6,9 @@
 [![github-release][github-release-badge]][github-release]
 [![github-license][github-license-badge]][github-license]
 
-Tara is a new, free, open-source self-hostable, Discord bot.
+Tara is a modern, free, open-source, self-hostable Discord bot.
 
-Tara works on Linux (with macOS and Windows support coming soon).
+Tara works on Linux and macOS.
 
 [Installation](#installation) • [Using](#using)
 
@@ -48,6 +48,22 @@ If your desired platform isn't seen below, please [open an issue][issues].
 2. **Configure**
 
 Before the bot can be started successfully, it needs to be configured.
+Tara has an interactive setup subcommand, `tara config init`.
+
+```sh
+$ tara config init --help
+tara-config-init 0.2.0
+Create configuration files with a user-provided configuration
+
+USAGE:
+    tara config init
+
+FLAGS:
+    -h, --help    Prints help information
+```
+
+`tara config init` will create a configuration file in the appropriate location. If this needs to
+be modified it can be.
 The file's content's should be the same regardless of operating system, but the location in the file system will be different.
 
 <details>
@@ -117,7 +133,26 @@ All accepted keys:
 
 # Using
 
-## Commands
+## Running
+
+To start Tara, use the `tara daemon` command. If no errors or warnings occur, Tara's stdout and stderr will be blank. If Tara has a proper Discord token, then it's [ready to use](#discord-commands).
+
+```sh
+$ tara daemon --help
+tara-daemon 0.2.0
+Start Tara
+
+USAGE:
+    tara daemon [OPTIONS]
+
+FLAGS:
+    -h, --help    Prints help information
+
+OPTIONS:
+        --config <config>    Specify a configuration file to use instead of the default
+```
+
+## Discord Commands
 
 | Name                      | Description                                                                              | Usable in  DMs | Permissions  |
 | ------------------------- | ---------------------------------------------------------------------------------------- | -------------- | ------------ |

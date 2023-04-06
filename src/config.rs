@@ -7,20 +7,17 @@ use crate::{Error, Result};
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde_with::serde_as]
 #[serde(rename_all = "camelCase")]
-pub struct Configuration
-{
+pub struct Configuration {
     pub secrets:                 ConfigurationSecrets,
     #[serde_as(as = "serde_with::DurationSeconds<i64>")]
     pub direct_message_cooldown: Option<std::time::Duration>,
     pub random_error_message:    ConfigurationRandomErrorMessages,
-    pub databases_path:          Option<std::path::PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 /// API keys and other secrets
-pub struct ConfigurationSecrets
-{
+pub struct ConfigurationSecrets {
     /// Discord bot token
     pub token: String,
 
@@ -32,14 +29,12 @@ pub struct ConfigurationSecrets
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 /// If, and where, to find error messages to randomly select from.
-pub enum ConfigurationRandomErrorMessages
-{
+pub enum ConfigurationRandomErrorMessages {
     Boolean(bool),
     Path(std::path::PathBuf),
 }
 
-impl Configuration
-{
+impl Configuration {
     const DEFAULT_DM_COOLDOWN_LEN: u64 = 3;
 
     /// Read a `Configuration` from toml located at `path`.
@@ -58,8 +53,7 @@ impl Configuration
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into a `Configuration`
-    pub async fn from_toml(path: impl Into<std::path::PathBuf>) -> Result<Self>
-    {
+    pub async fn from_toml(path: impl Into<std::path::PathBuf>) -> Result<Self> {
         let path = path.into();
         let file_contents = fs::read_to_string(&path).await.map_err(Error::Io)?;
         let parsed =
@@ -68,28 +62,22 @@ impl Configuration
     }
 }
 
-impl Default for Configuration
-{
-    fn default() -> Self
-    {
+impl Default for Configuration {
+    fn default() -> Self {
         Self {
             secrets:                 ConfigurationSecrets::default(),
-            databases_path:          None,
             random_error_message:    ConfigurationRandomErrorMessages::Boolean(true),
             direct_message_cooldown: Some(std::time::Duration::from_secs(Self::DEFAULT_DM_COOLDOWN_LEN)),
         }
     }
 }
 
-impl ConfigurationSecrets
-{
+impl ConfigurationSecrets {
     const DEFAULT_DISCORD_TOKEN: &str = "<DISCORD_TOKEN>";
 }
 
-impl Default for ConfigurationSecrets
-{
-    fn default() -> Self
-    {
+impl Default for ConfigurationSecrets {
+    fn default() -> Self {
         Self {
             token:            Self::DEFAULT_DISCORD_TOKEN.to_string(),
             currency_api_key: None,
@@ -98,13 +86,11 @@ impl Default for ConfigurationSecrets
 }
 
 /// Error messages parsed from the file provided in the `Configuration`.
-pub struct ErrorMessages
-{
+pub struct ErrorMessages {
     pub messages: Vec<(String, String)>,
 }
 
-impl ErrorMessages
-{
+impl ErrorMessages {
     /// Read an `ErrorMessages` from JSON located at `path`.
     ///
     /// # Usage
@@ -121,8 +107,7 @@ impl ErrorMessages
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into `ErrorMessages`
-    pub async fn from_json(path: impl Into<std::path::PathBuf>) -> Result<Self>
-    {
+    pub async fn from_json(path: impl Into<std::path::PathBuf>) -> Result<Self> {
         pub type Root = Vec<[String; 2]>;
         let path = path.into();
         let file_contents = tokio::fs::read_to_string(&path).await.map_err(Error::Io)?;
@@ -138,10 +123,8 @@ impl ErrorMessages
     }
 }
 
-impl Default for ErrorMessages
-{
-    fn default() -> Self
-    {
+impl Default for ErrorMessages {
+    fn default() -> Self {
         Self {
             messages: vec![("There was an error".to_string(), "Please try again.".to_string())],
         }
