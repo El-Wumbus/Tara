@@ -31,15 +31,17 @@ const DESCRIPTION: &str = "A modern self-hostable Discord bot.";
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = NAME, about = DESCRIPTION)]
-#[structopt(global_setting(ColorAuto), global_setting(ColoredHelp))]
-enum Options
-{
+#[structopt(
+    global_setting(ColorAuto),
+    global_setting(ColoredHelp),
+    global_setting(VersionlessSubcommands)
+)]
+enum Options {
     /// Manage Tara's configuration
     Config(SubOptionConfig),
 
     /// Start Tara.
-    Daemon
-    {
+    Daemon {
         #[structopt(long)]
         /// Specify a configuration file to use instead of the default.
         config: Option<PathBuf>,
@@ -47,15 +49,13 @@ enum Options
 }
 
 #[derive(StructOpt, Debug, Clone)]
-enum SubOptionConfig
-{
+enum SubOptionConfig {
     /// Create configuration files with a user-provided configuration.
     Init,
 }
 
 #[tokio::main]
-async fn main() -> std::result::Result<(), anyhow::Error>
-{
+async fn main() -> std::result::Result<(), anyhow::Error> {
     match Options::from_args() {
         Options::Daemon { config } => daemon(config).await?,
         Options::Config(option) => {
@@ -68,8 +68,7 @@ async fn main() -> std::result::Result<(), anyhow::Error>
     Ok(())
 }
 
-async fn daemon(config_path: Option<PathBuf>) -> Result<()>
-{
+async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
     // Setup logging
     env_logger::init();
     log::info!("Initialized Logging");
@@ -107,12 +106,10 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()>
     Ok(())
 }
 
-async fn init() -> Result<()>
-{
+async fn init() -> Result<()> {
     use rustyline::DefaultEditor;
 
-    fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>>
-    {
+    fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>> {
         let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();
         if value.is_empty() {
             Ok(None)
@@ -187,11 +184,11 @@ async fn init() -> Result<()>
 
     let config = config::Configuration {
         secrets: config::ConfigurationSecrets {
-            token,
-            currency_api_key,
+            token:            token.clone(),
+            currency_api_key: currency_api_key.clone(),
         },
         direct_message_cooldown,
-        random_error_message,
+        random_error_message: random_error_message.clone(),
     };
 
     let config = toml::to_string_pretty(&config).map_err(|e| {
@@ -201,15 +198,32 @@ async fn init() -> Result<()>
         }
     })?;
 
-    fs::create_dir_all(&config_file_path.parent().unwrap()).await.map_err(Error::Io)?;
-    fs::write(&config_file_path, config).await.map_err(Error::Io)?;
-    println!("Saved config to \"{}\"", config_file_path.display());
-    
+    println!(
+        "Selected Configuration:\n\ttoken = '{token}' \n\tcurrencyApiKey = {currency_api_key:?} \
+         \n\tdirectMessageCooldown = {direct_message_cooldown:?} \n\trandomErrorMessage = \
+         {random_error_message:?}"
+    );
+
+    // If we should continue, save, otherwise we exit.
+    if get_optional_value(&mut rl, "Is this okay? [y/N]: ")?.map_or(false, |mut x| {
+        x = x.to_lowercase();
+        x == "y" || x == "yes"
+    }) {
+        fs::create_dir_all(&config_file_path.parent().unwrap())
+            .await
+            .map_err(Error::Io)?;
+        fs::write(&config_file_path, config).await.map_err(Error::Io)?;
+        println!("Saved config to \"{}\"", config_file_path.display());
+    }
+    else {
+        println!("Quitting...");
+    }
+
+
     Ok(())
 }
 
-struct EventHandler
-{
+struct EventHandler {
     config:              Arc<config::Configuration>,
     error_messages:      Arc<config::ErrorMessages>,
     databases:           Arc<database::Databases>,
@@ -218,10 +232,8 @@ struct EventHandler
 
 
 #[async_trait]
-impl client::EventHandler for EventHandler
-{
-    async fn interaction_create(&self, context: Context, interaction: Interaction)
-    {
+impl client::EventHandler for EventHandler {
+    async fn interaction_create(&self, context: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
             // Assume we're in a DM
             if command.guild_id.is_none() {
@@ -273,8 +285,7 @@ impl client::EventHandler for EventHandler
         }
     }
 
-    async fn ready(&self, context: Context, ready: Ready)
-    {
+    async fn ready(&self, context: Context, ready: Ready) {
         log::info!("{} is connected!", ready.user.name);
         log::info!("Registering commands...");
         Command::set_global_application_commands(&context.http, |commands| {
@@ -322,8 +333,7 @@ impl client::EventHandler for EventHandler
 /// let error_messages = load_error_messages(config.clone());
 /// dbg!(error_messages);
 /// ```
-async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::ErrorMessages>
-{
+async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::ErrorMessages> {
     Arc::new(match &config.random_error_message {
         config::ConfigurationRandomErrorMessages::Boolean(x) => {
             if *x {

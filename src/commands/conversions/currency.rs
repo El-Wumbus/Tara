@@ -4,16 +4,14 @@ use serde::{Deserialize, Serialize};
 use crate::{commands::core::strip_suffixes, Error, Result};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ExchangeRatesResponse
-{
+pub struct ExchangeRatesResponse {
     meta: ExchangeRateResponseMeta,
     data: ExchangeRateResponseData,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
-struct ExchangeRateResponseData
-{
+struct ExchangeRateResponseData {
     // Euro
     EUR: ExchangeRateResponseDataInfo,
     /// U.S. Dollar
@@ -35,26 +33,22 @@ struct ExchangeRateResponseData
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct ExchangeRateResponseMeta
-{
+struct ExchangeRateResponseMeta {
     last_updated_at: String,
 }
 
 // Echange rates are floating point numbers that represent
 // value relative to USD. USD will always be 1.0
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct ExchangeRateResponseDataInfo
-{
+struct ExchangeRateResponseDataInfo {
     code:  String,
     value: f64,
 }
 
-impl ExchangeRatesResponse
-{
+impl ExchangeRatesResponse {
     /// Makes an http reqest using the `api_key` and saves this JSON
     /// data to `ECHANGE_RATE_FILE`
-    pub async fn fetch(api_key: String) -> Result<Self>
-    {
+    pub async fn fetch(api_key: String) -> Result<Self> {
         // Construct request URL
         let url = format!(
             "https://api.currencyapi.com/v3/latest?apikey={api_key}&currencies=EUR%2CUSD%2CCAD%2CRUB%2CJPY%2CAUD%2CAMD%2CGBP%2CPKR",
@@ -73,8 +67,7 @@ impl ExchangeRatesResponse
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct ExchangeRates
-{
+pub struct ExchangeRates {
     /// When the exchange rates were last fetched
     when: DateTime<Utc>,
 
@@ -106,10 +99,8 @@ pub struct ExchangeRates
     pkr: f64,
 }
 
-impl ExchangeRates
-{
-    pub async fn fetch(api_key: String) -> Result<Self>
-    {
+impl ExchangeRates {
+    pub async fn fetch(api_key: String) -> Result<Self> {
         let resp = ExchangeRatesResponse::fetch(api_key).await?;
         Ok(Self {
             /// When the exchange rates were last fetched
@@ -138,8 +129,7 @@ impl ExchangeRates
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub enum Name
-{
+pub enum Name {
     // Euro
     Eur,
 
@@ -168,10 +158,8 @@ pub enum Name
     Pkr,
 }
 
-impl std::fmt::Display for Name
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
+impl std::fmt::Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::Usd => "Dollar(s) [USD]",
             Self::Eur => "Euro(s) [EUR]",
@@ -189,8 +177,7 @@ impl std::fmt::Display for Name
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub struct Currency
-{
+pub struct Currency {
     converter: Converter,
     /// The currency of the value
     currency:  Name,
@@ -199,14 +186,12 @@ pub struct Currency
     value: f64,
 }
 
-impl Currency
-{
+impl Currency {
     pub fn change_currency(&mut self, currency: Name) { self.currency = currency; }
 
     pub fn get_converter(&self) -> Converter { self.converter.clone() }
 
-    pub async fn from_str(s: &str, converter: Converter) -> Result<Self>
-    {
+    pub async fn from_str(s: &str, converter: Converter) -> Result<Self> {
         let mut s = s.to_string();
         let currency;
         let mut value;
@@ -306,8 +291,7 @@ impl Currency
     }
 
     /// If the exchange rates are too old, refresh them.
-    async fn refresh_exchange_rates(mut converter: Converter) -> Result<Converter>
-    {
+    async fn refresh_exchange_rates(mut converter: Converter) -> Result<Converter> {
         let now = Utc::now().time();
         let when = converter.exchange_rates.when.time();
         let max_age = converter.max_age;
@@ -321,10 +305,8 @@ impl Currency
     }
 }
 
-impl std::fmt::Display for Currency
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
+impl std::fmt::Display for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Store all currencies as USD
         let exchange_rates = self.converter.exchange_rates;
         let value = match self.currency {
@@ -344,8 +326,7 @@ impl std::fmt::Display for Currency
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct Converter
-{
+pub struct Converter {
     /// The exchange rates
     exchange_rates: ExchangeRates,
 
@@ -356,10 +337,8 @@ pub struct Converter
     max_age: Duration,
 }
 
-impl Converter
-{
-    pub async fn new(api_key: String, max_age: Duration) -> Result<Self>
-    {
+impl Converter {
+    pub async fn new(api_key: String, max_age: Duration) -> Result<Self> {
         Ok(Self {
             exchange_rates: ExchangeRates::fetch(api_key.clone()).await?,
             api_key,
@@ -368,8 +347,7 @@ impl Converter
     }
 }
 
-pub async fn run(converter: Converter, input: String, target: String) -> Result<(String, Converter)>
-{
+pub async fn run(converter: Converter, input: String, target: String) -> Result<(String, Converter)> {
     let mut value = Currency::from_str(&input, converter.clone()).await?;
 
     let initial_value = value.to_string();

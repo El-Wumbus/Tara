@@ -25,13 +25,11 @@ pub const COMMAND: Settings = Settings;
 pub struct Settings;
 
 #[async_trait]
-impl DiscordCommand for Settings
-{
+impl DiscordCommand for Settings {
     fn register<'a>(
         &'a self,
         command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand
-    {
+    ) -> &mut serenity::builder::CreateApplicationCommand {
         command
             .name(self.name())
             .dm_permission(false)
@@ -102,8 +100,7 @@ impl DiscordCommand for Settings
         command: &ApplicationCommandInteraction,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String>
-    {
+    ) -> crate::Result<String> {
         let option = &command.data.options[0];
         match &*option.name {
             "set" => {

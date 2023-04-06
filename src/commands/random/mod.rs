@@ -17,10 +17,8 @@ pub static COMMAND: Random = Random;
 pub struct Random;
 
 #[async_trait]
-impl DiscordCommand for Random
-{
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand
-    {
+impl DiscordCommand for Random {
+    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
         command
             .name(self.name())
             .dm_permission(true)
@@ -84,8 +82,7 @@ impl DiscordCommand for Random
         command: &ApplicationCommandInteraction,
         _config: Arc<config::Configuration>,
         _databases: Arc<crate::database::Databases>,
-    ) -> Result<String>
-    {
+    ) -> Result<String> {
         for option in &command.data.options {
             if matches!(option.kind, CommandOptionType::SubCommand) {
                 match &*option.name {
@@ -130,8 +127,7 @@ impl DiscordCommand for Random
 /// ```Rust
 /// dbg!(coin_flip());
 /// ```
-fn coin_flip() -> String
-{
+fn coin_flip() -> String {
     let mut rng = rand::thread_rng();
 
     if rng.gen_bool(1.0 / 2.0) {
@@ -154,8 +150,7 @@ fn coin_flip() -> String
 /// dbg!(random_number(low, high, false));
 /// ```
 #[allow(clippy::cast_possible_truncation)]
-fn random_number(low: f64, high: f64, integer: bool) -> String
-{
+fn random_number(low: f64, high: f64, integer: bool) -> String {
     let mut rng = rand::thread_rng();
 
     if integer {

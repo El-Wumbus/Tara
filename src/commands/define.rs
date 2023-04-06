@@ -20,13 +20,11 @@ pub const COMMAND: Define = Define;
 pub struct Define;
 
 #[async_trait]
-impl DiscordCommand for Define
-{
+impl DiscordCommand for Define {
     fn register<'a>(
         &'a self,
         command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand
-    {
+    ) -> &mut serenity::builder::CreateApplicationCommand {
         command
             .name("define")
             .description("Define an english word")
@@ -46,8 +44,7 @@ impl DiscordCommand for Define
         command: &ApplicationCommandInteraction,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String>
-    {
+    ) -> crate::Result<String> {
         let mut word = Value::Null;
         for option in &command.data.options {
             match &*option.name {
@@ -111,8 +108,7 @@ structstruck::strike! {
 ///
 /// - An HTTP request fails
 /// - An API returns invalid or unexpected JSON
-async fn get_word_definition(word: String) -> Result<String>
-{
+async fn get_word_definition(word: String) -> Result<String> {
     let word_ = urlencoding::encode(word.to_lowercase().trim()).to_string();
     let request_url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{word_}");
 

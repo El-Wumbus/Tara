@@ -56,8 +56,7 @@ crate::commands::lazy_static! {
 }
 
 #[async_trait]
-pub trait DiscordCommand
-{
+pub trait DiscordCommand {
     /// Register the discord command.
     fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand;
 
@@ -84,8 +83,7 @@ pub async fn run_command(
     config: Arc<config::Configuration>,
     databases: Arc<crate::database::Databases>,
     error_messages: Arc<config::ErrorMessages>,
-)
-{
+) {
     let command_name = get_command_name(&command);
     if let Some(cmd) = COMMAND_MAP.get(&command_name) {
         let cmd = &COMMANDS[*cmd];
@@ -118,8 +116,7 @@ pub async fn notify_user_of_error(
     http: &Http,
     command: &ApplicationCommandInteraction,
     error_messages: Arc<config::ErrorMessages>,
-)
-{
+) {
     let error_message = pick_error_message(&error_messages);
     let msg = format!(
         "{}: *[{}] {}.*\n{}",
@@ -143,8 +140,7 @@ pub async fn notify_user_of_error(
     }
 }
 
-async fn give_user_results(results: String, http: &Http, command: &ApplicationCommandInteraction)
-{
+async fn give_user_results(results: String, http: &Http, command: &ApplicationCommandInteraction) {
     if let Err(e) = command
         .create_interaction_response(http, |response| {
             response
@@ -158,8 +154,7 @@ async fn give_user_results(results: String, http: &Http, command: &ApplicationCo
 }
 
 /// Randomly select an error message pre/postfix
-fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String)
-{
+fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String) {
     use rand::seq::SliceRandom;
     error_messages
         .messages
@@ -168,8 +163,7 @@ fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String
         .clone()
 }
 
-pub mod core
-{
+pub mod core {
     use std::collections::HashSet;
 
     use serenity::model::prelude::GuildId;
@@ -180,8 +174,7 @@ pub mod core
     pub fn get_max_content_len(
         command: &ApplicationCommandInteraction,
         databases: &crate::database::Databases,
-    ) -> Result<usize>
-    {
+    ) -> Result<usize> {
         // Get the max from the guild's configuration. If we're not in a guild then we
         // use the default.
         let max = {
@@ -218,8 +211,7 @@ pub mod core
 
     /// Remove any suffixes found in `suffixes` from the input string.
     #[must_use]
-    pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String
-    {
+    pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String {
         let input_bytes = input.as_bytes();
         let mut suffix_bytes: &[u8];
 
@@ -233,8 +225,7 @@ pub mod core
         input.to_owned()
     }
 
-    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId) -> Result<HashSet<u64>>
-    {
+    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId) -> Result<HashSet<u64>> {
         let connection = databases
             .guilds
             .get()

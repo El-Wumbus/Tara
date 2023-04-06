@@ -5,20 +5,16 @@ use crate::{Error, Result};
 pub async fn random() -> Result<String> { Ok(Quote::random().await?.to_string()) }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Quote
-{
+pub enum Quote {
     Random(Random),
 }
 
-impl Quote
-{
+impl Quote {
     async fn random() -> Result<Self> { Ok(Self::Random(Random::fetch().await?)) }
 }
 
-impl std::fmt::Display for Quote
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
+impl std::fmt::Display for Quote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
@@ -31,8 +27,7 @@ impl std::fmt::Display for Quote
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Random
-{
+pub struct Random {
     #[serde(rename = "_id")]
     pub id:            String,
     pub content:       String,
@@ -44,10 +39,8 @@ pub struct Random
     pub date_modified: String,
 }
 
-impl Random
-{
-    pub async fn fetch() -> Result<Self>
-    {
+impl Random {
+    pub async fn fetch() -> Result<Self> {
         // Construct request URL
         const URL: &str = "https://api.quotable.io/random";
 
@@ -69,22 +62,18 @@ impl Random
     }
 }
 
-impl std::fmt::Display for Random
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
+impl std::fmt::Display for Random {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "*{}*\n\t—{}", self.content.trim(), self.author)
     }
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     #[test]
-    fn test_random_quote_display()
-    {
+    fn test_random_quote_display() {
         let quote = Random {
             id:            "NONE".to_string(),
             content:       "This is a quote".to_string(),
@@ -100,8 +89,7 @@ mod tests
     }
 
     #[test]
-    fn test_quote_display()
-    {
+    fn test_quote_display() {
         let quote = Quote::Random(Random {
             id:            "NONE".to_string(),
             content:       "This is a quote".to_string(),
@@ -117,8 +105,7 @@ mod tests
     }
 
     #[tokio::test]
-    async fn fetch_random_quote()
-    {
+    async fn fetch_random_quote() {
         let quote = Quote::random().await.unwrap();
         let Quote::Random(quote) = quote;
 
