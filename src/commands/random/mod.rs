@@ -1,12 +1,18 @@
 //! Produce pseudo-random outcomes
-use rand::Rng;
-use serenity::model::prelude::command::CommandOptionType;
 
-use super::{
-    async_trait, config, ApplicationCommandInteraction, Arc, Context, CreateApplicationCommand,
-    DiscordCommand, Error,
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use rand::Rng;
+use serenity::{
+    all::{CommandInteraction, CommandOptionType},
+    builder::{CreateCommand, CreateCommandOption},
+    model::prelude::Guild,
+    prelude::Context,
 };
-use crate::Result;
+
+use super::DiscordCommand;
+use crate::{config, Error, Result};
 
 mod images;
 mod quote;
@@ -18,103 +24,76 @@ pub struct Random;
 
 #[async_trait]
 impl DiscordCommand for Random {
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-        command
-            .name(self.name())
+    fn register(&self) -> CreateCommand {
+        let options = vec![
+            CreateCommandOption::new(CommandOptionType::SubCommand, "coin", "Flip a coin"),
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "quote",
+                "Request a random quote from the internet",
+            ),
+            CreateCommandOption::new(CommandOptionType::SubCommand, "dog", "Get a random dog photo"),
+            CreateCommandOption::new(CommandOptionType::SubCommand, "cat", "Get a random cat photo"),
+            CreateCommandOption::new(CommandOptionType::SubCommand, "number", "Random Number Generator")
+                .add_sub_option(
+                    CreateCommandOption::new(CommandOptionType::Number, "low", "The low bound, inclusive")
+                        .required(false),
+                )
+                .add_sub_option(
+                    CreateCommandOption::new(CommandOptionType::Number, "high", "The high bound, inclusive")
+                        .required(false),
+                )
+                .add_sub_option(
+                    CreateCommandOption::new(
+                        CommandOptionType::Boolean,
+                        "integer",
+                        "Generate an integer (whole number) instead of a float (decimal)",
+                    )
+                    .required(false),
+                ),
+        ];
+
+        CreateCommand::new(self.name())
+            .description("Define an english word")
             .dm_permission(true)
-            .description("Pseudo-Randomness")
-            .create_option(|option| {
-                option
-                    .name("coin")
-                    .kind(CommandOptionType::SubCommand)
-                    .description("Flip a coin")
-            })
-            .create_option(|option| {
-                option
-                    .name("number")
-                    .kind(CommandOptionType::SubCommand)
-                    .description("Random Number Generator")
-                    .create_sub_option(|option| {
-                        option
-                            .name("low")
-                            .kind(CommandOptionType::Number)
-                            .description("The low bound, inclusive")
-                            .required(false)
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("high")
-                            .kind(CommandOptionType::Number)
-                            .description("The high bound, inclusive")
-                            .required(false)
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("integer")
-                            .kind(CommandOptionType::Boolean)
-                            .description("Generate an integer (whole number) instead of a float (decimal)")
-                            .required(false)
-                    })
-            })
-            .create_option(|option| {
-                option
-                    .name("quote")
-                    .description("Request a random quote from the internet")
-                    .kind(CommandOptionType::SubCommand)
-            })
-            .create_option(|option| {
-                option
-                    .name("dog")
-                    .description("Get a random dog photo")
-                    .kind(CommandOptionType::SubCommand)
-            })
-            .create_option(|option| {
-                option
-                    .name("cat")
-                    .description("Get a random cat photo")
-                    .kind(CommandOptionType::SubCommand)
-            })
+            .set_options(options)
     }
 
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        _guild: Option<Guild>,
         _config: Arc<config::Configuration>,
         _databases: Arc<crate::database::Databases>,
     ) -> Result<String> {
-        for option in &command.data.options {
-            if matches!(option.kind, CommandOptionType::SubCommand) {
-                match &*option.name {
-                    "coin" => return Ok(coin_flip()),
-                    "quote" => return quote::random().await,
-                    "cat" => return images::random_cat().await,
-                    "dog" => return images::random_dog().await,
-                    "number" => {
-                        let mut low = 0.0;
-                        let mut high = 1_000_000.0;
-                        let mut integer = false;
+        let option = &command.data.options[0];
+        match &*option.name {
+            "coin" => Ok(coin_flip()),
+            "quote" => quote::random().await,
+            "cat" => images::random_cat().await,
+            "dog" => images::random_dog().await,
+            "number" => {
+                let mut low = 0.0;
+                let mut high = 1_000_000.0;
+                let mut integer = false;
 
-                        for option in &option.options {
-                            match &*option.name {
-                                "low" => {
-                                    low = option.value.clone().unwrap_or_default().as_f64().unwrap_or(low);
-                                }
-                                "high" => {
-                                    high = option.value.clone().unwrap_or_default().as_f64().unwrap_or(high);
-                                }
-                                "integer" => integer = true,
-                                _ => return Err(Error::InternalLogic),
-                            }
+                for option in super::core::suboptions(option) {
+                    match &*option.name {
+                        "low" => {
+                            low = option.value.as_f64().unwrap_or(low);
                         }
-                        return Ok(random_number(low, high, integer));
+                        "high" => {
+                            high = option.value.as_f64().unwrap_or(high);
+                        }
+                        "integer" => integer = true,
+                        _ => return Err(Error::InternalLogic),
                     }
-                    _ => return Err(Error::InternalLogic),
                 }
+                Ok(random_number(low, high, integer))
             }
+            _ => Err(Error::InternalLogic),
         }
-
-        Ok(String::from("WHAT? HOW DID THIS EVEN EXECUTE?"))
     }
 
     fn name(&self) -> String { String::from("random") }

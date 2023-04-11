@@ -4,11 +4,9 @@ use async_trait::async_trait;
 use cached::proc_macro::once;
 use lazy_static::lazy_static;
 use serenity::{
-    builder::CreateApplicationCommand,
+    all::{CommandInteraction, Guild},
+    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
-    model::prelude::interaction::{
-        application_command::ApplicationCommandInteraction, InteractionResponseType,
-    },
     prelude::Context,
 };
 
@@ -58,13 +56,14 @@ crate::commands::lazy_static! {
 #[async_trait]
 pub trait DiscordCommand {
     /// Register the discord command.
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand;
+    fn register(&self) -> CreateCommand;
 
     /// Run the discord command
     async fn run(
         &self,
         context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        guild: Option<Guild>,
         config: Arc<config::Configuration>,
         databases: Arc<crate::database::Databases>,
     ) -> Result<String>;
@@ -74,12 +73,13 @@ pub trait DiscordCommand {
 }
 
 #[must_use]
-pub fn get_command_name(command: &ApplicationCommandInteraction) -> String { command.data.name.to_string() }
+pub fn get_command_name(command: &CommandInteraction) -> String { command.data.name.to_string() }
 
 /// Run a command specified by its name.
 pub async fn run_command(
     context: Context,
-    command: ApplicationCommandInteraction,
+    command: CommandInteraction,
+    guild: Option<Guild>,
     config: Arc<config::Configuration>,
     databases: Arc<crate::database::Databases>,
     error_messages: Arc<config::ErrorMessages>,
@@ -87,7 +87,10 @@ pub async fn run_command(
     let command_name = get_command_name(&command);
     if let Some(cmd) = COMMAND_MAP.get(&command_name) {
         let cmd = &COMMANDS[*cmd];
-        match cmd.run(&context, &command, config.clone(), databases).await {
+        match cmd
+            .run(&context, &command, guild, config.clone(), databases)
+            .await
+        {
             Err(e) => notify_user_of_error(e, &context.http, &command, error_messages.clone()).await,
             Ok(x) => give_user_results(x, &context.http, &command).await,
         }
@@ -95,17 +98,14 @@ pub async fn run_command(
     else {
         // Respond with an ephemeral error message, this means that only the user who
         // started the interaction can see the error.
-        if let Err(e) = command
-            .create_interaction_response(&context.http, |response| {
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| {
-                        message.ephemeral(true);
-                        message.content(format!("Command \"{command_name}\" doesn't exist."))
-                    })
-            })
-            .await
-        {
+        let response = CreateInteractionResponse::Message(
+            CreateInteractionResponseMessage::new()
+                .content(format!("Command \"{command_name}\" doesn't exist."))
+                .ephemeral(true),
+        );
+        // Respond with an ephemeral error message, this means that only the user who
+        // started the interaction can see the error, and it's dismissable.
+        if let Err(e) = command.create_response(&context.http, response).await {
             log::error!("Couldn't respond to command: {e}");
         }
     }
@@ -114,7 +114,7 @@ pub async fn run_command(
 pub async fn notify_user_of_error(
     e: Error,
     http: &Http,
-    command: &ApplicationCommandInteraction,
+    command: &CommandInteraction,
     error_messages: Arc<config::ErrorMessages>,
 ) {
     let error_message = pick_error_message(&error_messages);
@@ -125,30 +125,21 @@ pub async fn notify_user_of_error(
         e,
         error_message.1
     );
-    if let Err(e) = command
-        .create_interaction_response(http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| {
-                    message.ephemeral(true);
-                    message.content(msg)
-                })
-        })
-        .await
-    {
+    let response = CreateInteractionResponse::Message(
+        CreateInteractionResponseMessage::new()
+            .content(msg)
+            .ephemeral(true),
+    );
+
+    if let Err(e) = command.create_response(http, response).await {
         log::error!("Couldn't respond to command: {e}");
     }
 }
 
-async fn give_user_results(results: String, http: &Http, command: &ApplicationCommandInteraction) {
-    if let Err(e) = command
-        .create_interaction_response(http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(results))
-        })
-        .await
-    {
+async fn give_user_results(results: String, http: &Http, command: &CommandInteraction) {
+    let response =
+        CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().content(results));
+    if let Err(e) = command.create_response(http, response).await {
         log::error!("Couldn't respond to command: {e}");
     }
 }
@@ -166,13 +157,26 @@ fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String
 pub mod core {
     use std::collections::HashSet;
 
-    use serenity::model::prelude::GuildId;
+    use serenity::{
+        all::{CommandDataOption, CommandDataOptionValue},
+        model::prelude::GuildId,
+    };
 
-    use super::{once, ApplicationCommandInteraction, Result};
+    use super::{once, CommandInteraction, Result};
+
+    pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
+        let mut val = None;
+        match &option.value {
+            CommandDataOptionValue::SubCommand(options)
+            | CommandDataOptionValue::SubCommandGroup(options) => val = Some(options),
+            _ => (),
+        }
+        val.unwrap()
+    }
 
     #[once(time = 15, result = true)]
     pub fn get_max_content_len(
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
         databases: &crate::database::Databases,
     ) -> Result<usize> {
         // Get the max from the guild's configuration. If we're not in a guild then we

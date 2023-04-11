@@ -1,16 +1,11 @@
 #![feature(const_trait_impl)]
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
-use chrono::Utc;
 use rustyline::{history::FileHistory, Editor};
 use serenity::{
+    all::{Command, Guild, Interaction, Ready},
     async_trait, client,
-    model::prelude::{
-        command::Command,
-        interaction::{Interaction, InteractionResponseType},
-        Ready, UserId,
-    },
     prelude::*,
     Client,
 };
@@ -85,8 +80,10 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
     let error_messages = load_error_messages(config.clone());
 
     // Setup intents
-    let intents =
-        GatewayIntents::GUILD_MESSAGES | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILDS;
 
     // Initialize && start client
     let mut client = Client::builder(config.secrets.token.clone(), intents)
@@ -94,7 +91,6 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
             databases: database::Databases::open().await?,
             config,
             error_messages: error_messages.await,
-            dm_cooldown_counter: Arc::new(Mutex::new(HashMap::new())),
         })
         .await
         .map_err(Error::ClientInitialization)?;
@@ -205,10 +201,11 @@ async fn init() -> Result<()> {
     );
 
     // If we should continue, save, otherwise we exit.
-    if get_optional_value(&mut rl, "Is this okay? [y/N]: ")?.map_or(false, |mut x| {
+    let cont = get_optional_value(&mut rl, "Is this okay? [y/N]: ")?.map_or(false, |mut x| {
         x = x.to_lowercase();
         x == "y" || x == "yes"
-    }) {
+    });
+    if cont {
         fs::create_dir_all(&config_file_path.parent().unwrap())
             .await
             .map_err(Error::Io)?;
@@ -224,59 +221,24 @@ async fn init() -> Result<()> {
 }
 
 struct EventHandler {
-    config:              Arc<config::Configuration>,
-    error_messages:      Arc<config::ErrorMessages>,
-    databases:           Arc<database::Databases>,
-    dm_cooldown_counter: Arc<Mutex<HashMap<UserId, chrono::DateTime<Utc>>>>,
+    config:         Arc<config::Configuration>,
+    error_messages: Arc<config::ErrorMessages>,
+    databases:      Arc<database::Databases>,
 }
 
 
 #[async_trait]
 impl client::EventHandler for EventHandler {
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            // Assume we're in a DM
-            if command.guild_id.is_none() {
-                use chrono::{Duration, Utc};
-                let uid = command.user.id;
-                let now = Utc::now();
-                let mut counter = self.dm_cooldown_counter.lock().await;
-
-                // If cooldown counter contains this User ID
-                if let Some(end) = counter.get(&uid) {
-                    // If the ending time is in the future
-                    if now < *end {
-                        // Report error & return
-                        if let Err(e) = command
-                            .create_interaction_response(&context.http, |response| {
-                                response
-                                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                                    .interaction_response_data(|message| {
-                                        message.ephemeral(true);
-                                        message.content(Error::DirectMessageCooldown(*end - now).to_string())
-                                    })
-                            })
-                            .await
-                        {
-                            log::error!("Couldn't respond to command: {e}");
-                        }
-                        return;
-                    }
-                    else {
-                        // Remove the cooldown entry from the hashmap
-                        let _ = counter.remove(&uid);
-                    }
-                }
-                else if let Some(cooldown_len) = self.config.direct_message_cooldown {
-                    let cooldown_len = Duration::from_std(cooldown_len).unwrap();
-                    // Calculate the ending time and add it to the counter.
-                    counter.insert(uid, now + cooldown_len);
-                }
-            }
+        if let Interaction::Command(command) = interaction {
+            let guild: Option<Guild> = command
+                .guild_id
+                .and_then(|guild_id| guild_id.to_guild_cached(&context.cache).map(|x| x.to_owned()));
 
             commands::run_command(
                 context,
                 command,
+                guild,
                 self.config.clone(),
                 self.databases.clone(),
                 self.error_messages.clone(),
@@ -288,15 +250,13 @@ impl client::EventHandler for EventHandler {
     async fn ready(&self, context: Context, ready: Ready) {
         log::info!("{} is connected!", ready.user.name);
         log::info!("Registering commands...");
-        Command::set_global_application_commands(&context.http, |commands| {
-            // For each command, register the command.
-            for command in commands::COMMANDS.iter() {
-                commands.create_application_command(|cmd| command.register(cmd));
-            }
-            commands
-        })
-        .await
-        .expect("Unable to register commands.");
+        let global_commands = commands::COMMANDS
+            .iter()
+            .map(|command| command.register())
+            .collect::<Vec<_>>();
+        Command::set_global_application_commands(&context.http, global_commands)
+            .await
+            .expect("Unable to register commands.");
         log::info!("Commands registered.");
 
         // On startup we check, for each guild we're in, if the guild if present in the

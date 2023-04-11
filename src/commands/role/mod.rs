@@ -1,13 +1,10 @@
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 
 use async_trait::async_trait;
 use serenity::{
-    builder::CreateApplicationCommand,
-    model::prelude::{
-        command::CommandOptionType,
-        interaction::application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-        Role, RoleId,
-    },
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, RoleId},
+    builder::{CreateCommand, CreateCommandOption},
+    model::prelude::Guild,
     prelude::Context,
 };
 
@@ -20,67 +17,56 @@ pub struct RoleCMD;
 
 #[async_trait]
 impl DiscordCommand for RoleCMD {
-    /// Register the discord command.
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-        command
-            .name(self.name())
+    fn register(&self) -> CreateCommand {
+        let options = vec![
+            CreateCommandOption::new(CommandOptionType::SubCommand, "add", "Give yourself a role")
+                .add_sub_option(
+                    CreateCommandOption::new(CommandOptionType::Role, "role", "The role to add")
+                        .required(true),
+                ),
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "remove",
+                "Remove a role from yourself",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(CommandOptionType::Role, "role", "The role to remove")
+                    .required(true),
+            ),
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "list",
+                "List all self-assignable roles",
+            ),
+        ];
+
+        CreateCommand::new(self.name())
             .description("Self-manage your roles")
             .dm_permission(false)
-            .create_option(|option| {
-                option
-                    .name("add")
-                    .kind(CommandOptionType::SubCommand)
-                    .description("Give yourself a role")
-                    .create_sub_option(|option| {
-                        option
-                            .name("role")
-                            .description("The role to add")
-                            .kind(CommandOptionType::Role)
-                            .required(true)
-                    })
-            })
-            .create_option(|option| {
-                option
-                    .name("remove")
-                    .kind(CommandOptionType::SubCommand)
-                    .description("Remove a role from yourself")
-                    .create_sub_option(|option| {
-                        option
-                            .name("role")
-                            .description("The role to remove")
-                            .kind(CommandOptionType::Role)
-                            .required(true)
-                    })
-            })
-            .create_option(|option| {
-                option
-                    .name("list")
-                    .kind(CommandOptionType::SubCommand)
-                    .description("List all self-assignable roles")
-            })
+            .set_options(options)
     }
 
     /// Run the discord command
     async fn run(
         &self,
         context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        guild: Option<Guild>,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
     ) -> Result<String> {
         let option = &command.data.options[0];
-        // We can unwrap because this command cannot run in DMs
-        let guild_id = command.guild_id.unwrap();
-        let roles = super::core::get_role_ids(&databases, guild_id)?;
+        let guild = guild.unwrap();
+        let roles = super::core::get_role_ids(&databases, guild.id)?;
 
         match &*option.name {
             "list" => {
                 // We can unwrap because this command cannot run in DMs
-                let guild = guild_id.to_partial_guild(&context.http).await.unwrap();
+                let guild = guild.id.to_partial_guild(&context.http).await.unwrap();
                 let guild_roles = guild.roles;
                 let roles: String = roles
                     .into_iter()
-                    .filter_map(|role_id| guild_roles.get(&RoleId(role_id)))
+                    .filter_map(|role_id| guild_roles.get(&RoleId(NonZeroU64::new(role_id).unwrap())))
                     .map(|role| &*role.name)
                     .collect::<Vec<&str>>()
                     .join(",");
@@ -89,8 +75,11 @@ impl DiscordCommand for RoleCMD {
             }
 
             "add" => {
-                let role = get_role(&option.options[0].resolved);
-                if !roles.contains(role.id.as_u64()) {
+                let role = {
+                    let CommandDataOptionValue::Role(role_id) = super::core::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
+                    guild.roles.get(&role_id).unwrap()
+                };
+                if !roles.contains(&u64::from(*role.id.as_inner())) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
@@ -107,8 +96,12 @@ impl DiscordCommand for RoleCMD {
             }
 
             "remove" => {
-                let role = get_role(&option.options[0].resolved);
-                if !roles.contains(role.id.as_u64()) {
+                let role = {
+                    let CommandDataOptionValue::Role(role_id) = super::core::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
+                    guild.roles.get(&role_id).unwrap()
+                };
+
+                if !roles.contains(&u64::from(*role.id.as_inner())) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
@@ -125,15 +118,6 @@ impl DiscordCommand for RoleCMD {
             }
 
             _ => return Err(Error::InternalLogic),
-        }
-
-        fn get_role(option: &Option<CommandDataOptionValue>) -> Role {
-            // Get the role argument
-            let mut role = None;
-            if let Some(CommandDataOptionValue::Role(input)) = option {
-                role = Some(input);
-            }
-            role.unwrap().to_owned()
         }
     }
 

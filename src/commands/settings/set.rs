@@ -1,6 +1,6 @@
-use serenity::model::prelude::{
-    interaction::application_command::{CommandDataOption, CommandDataOptionValue},
-    GuildId,
+use serenity::{
+    all::{CommandDataOption, CommandDataOptionValue, GuildId},
+    model::prelude::Guild,
 };
 
 use crate::{database::Databases, Result};
@@ -10,18 +10,12 @@ pub fn maximum_content_output_chars(
     option: &CommandDataOption,
     guild_id: GuildId,
 ) -> Result<String> {
-    let option = &option.options[0];
+    let option = &super::super::core::suboptions(option)[0];
 
     // Get the first option (there's only one, and it's required), then get an
     // integer from it. We clamp this so that the command output won't be less than
     // 80 chars and so it's far from discord's character limit.
-    let count = option
-        .value
-        .as_ref()
-        .unwrap()
-        .as_i64()
-        .unwrap_or_default()
-        .clamp(80, 1900) as u32;
+    let count = option.value.as_i64().unwrap_or_default().clamp(80, 1900) as u32;
 
     if !databases.contains("guilds", guild_id)? {
         // Insert default data
@@ -35,7 +29,7 @@ pub fn maximum_content_output_chars(
         .execute(
             &format!(
                 "UPDATE guilds SET max_content_chars={count} WHERE GuildID={}",
-                guild_id.as_u64()
+                u64::from(*guild_id.as_inner())
             ),
             [],
         )
@@ -48,53 +42,51 @@ pub fn maximum_content_output_chars(
 pub fn update_self_assignable_role(
     databases: &Databases,
     option: &CommandDataOption,
-    guild_id: GuildId,
+    guild: Guild,
     remove: bool,
 ) -> Result<String> {
-    let option = &option.options[0];
-    if let Some(CommandDataOptionValue::Role(role)) = option.resolved.clone() {
-        if !databases.contains("guilds", guild_id)? {
-            // Insert default data
-            databases.guilds_insert_default(guild_id)?;
-        }
+    let option = &super::super::core::suboptions(option)[0];
+    let CommandDataOptionValue::Role(role_id) = option.value else {return Err(crate::Error::InternalLogic)};
 
-        // Get the current roles and push to it.
-        let mut self_assignable_roles = super::super::core::get_role_ids(databases, guild_id)?;
-        let name = role.name.clone();
-        if remove {
-            if !self_assignable_roles.remove(role.id.as_u64()) {
-                return Err(crate::Error::CommandMisuse(format!(
-                    "Role \"{name}\" is **not** part of the *Self-assignable roles* list"
-                )));
-            }
-        }
-        else {
-            self_assignable_roles.insert(*role.id.as_u64());
-        }
+    let role = { guild.roles.get(&role_id).unwrap() };
+    if !databases.contains("guilds", guild.id)? {
+        // Insert default data
+        databases.guilds_insert_default(guild.id)?;
+    }
 
-        // Insert data
-        databases
-            .guilds
-            .get()
-            .map_err(crate::Error::DatabaseAccessTimeout)?
-            .execute(
-                &format!(
-                    "UPDATE guilds SET assignable_roles=X'{}' WHERE GuildID={}",
-                    {
-                        use hex_string::HexString;
-                        let b: Vec<u8> = bincode::serialize(&self_assignable_roles).unwrap();
-                        let hex = HexString::from_bytes(&b);
-                        hex.as_string()
-                    },
-                    guild_id.as_u64()
-                ),
-                [],
-            )
-            .map_err(crate::Error::DatabaseAccess)?;
-
-        Ok(format!("Added *self assignable role* \"{name}\""))
+    // Get the current roles and push to it.
+    let mut self_assignable_roles = super::super::core::get_role_ids(databases, guild.id)?;
+    let name = role.name.clone();
+    if remove {
+        if !self_assignable_roles.remove(&u64::from(*role_id.as_inner())) {
+            return Err(crate::Error::CommandMisuse(format!(
+                "Role \"{name}\" is **not** part of the *Self-assignable roles* list"
+            )));
+        }
     }
     else {
-        Err(crate::Error::InternalLogic)
+        self_assignable_roles.insert(u64::from(*role_id.as_inner()));
     }
+
+    // Insert data
+    databases
+        .guilds
+        .get()
+        .map_err(crate::Error::DatabaseAccessTimeout)?
+        .execute(
+            &format!(
+                "UPDATE guilds SET assignable_roles=X'{}' WHERE GuildID={}",
+                {
+                    use hex_string::HexString;
+                    let b: Vec<u8> = bincode::serialize(&self_assignable_roles).unwrap();
+                    let hex = HexString::from_bytes(&b);
+                    hex.as_string()
+                },
+                u64::from(*guild.id.as_inner())
+            ),
+            [],
+        )
+        .map_err(crate::Error::DatabaseAccess)?;
+
+    Ok(format!("Added *self assignable role* \"{name}\""))
 }
