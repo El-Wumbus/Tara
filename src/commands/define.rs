@@ -3,10 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serenity::{
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, Guild},
+    builder::{CreateCommand, CreateCommandOption},
     json::Value,
-    model::prelude::{
-        command::CommandOptionType, interaction::application_command::ApplicationCommandInteraction,
-    },
     prelude::Context,
 };
 use truncrate::TruncateToBoundary;
@@ -21,39 +20,35 @@ pub struct Define;
 
 #[async_trait]
 impl DiscordCommand for Define {
-    fn register<'a>(
-        &'a self,
-        command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand {
-        command
-            .name("define")
+    fn register(&self) -> CreateCommand {
+        let options = vec![
+            CreateCommandOption::new(CommandOptionType::String, "word", "The word to define").required(true),
+        ];
+
+        CreateCommand::new(self.name())
             .description("Define an english word")
             .dm_permission(true)
-            .create_option(|option| {
-                option
-                    .name("word")
-                    .description("The word to define")
-                    .kind(CommandOptionType::String)
-                    .required(true)
-            })
+            .set_options(options)
     }
 
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        _guild: Option<Guild>,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
     ) -> crate::Result<String> {
-        let mut word = Value::Null;
-        for option in &command.data.options {
-            match &*option.name {
-                "word" => word = option.value.clone().unwrap_or_default(),
-                _ => return Err(Error::InternalLogic),
+        let word = {
+            // Get the role argument
+            let mut word = None;
+            if let CommandDataOptionValue::String(input) = &command.data.options[0].value {
+                word = Some(input);
             }
-        }
+            word.unwrap().trim().to_owned()
+        };
 
-        let mut content = get_word_definition(word.as_str().unwrap_or_default().to_string()).await?;
+        let mut content = get_word_definition(word.as_str().to_string()).await?;
 
         let max = super::core::get_max_content_len(command, &databases)?;
         // Truncate wiki content.

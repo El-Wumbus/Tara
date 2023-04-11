@@ -2,16 +2,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serenity::{
-    model::{
-        prelude::{
-            command::CommandOptionType, interaction::application_command::ApplicationCommandInteraction,
-        },
-        Permissions,
-    },
+    all::{CommandInteraction, CommandOptionType},
+    builder::{CreateCommand, CreateCommandOption},
+    model::{prelude::Guild, Permissions},
     prelude::Context,
 };
 
 use super::DiscordCommand;
+use crate::database::Databases;
 
 
 mod set;
@@ -26,115 +24,100 @@ pub struct Settings;
 
 #[async_trait]
 impl DiscordCommand for Settings {
-    fn register<'a>(
-        &'a self,
-        command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand {
-        command
-            .name(self.name())
-            .dm_permission(false)
-            .description("View or modify bot settings for this guild")
+    fn register(&self) -> CreateCommand {
+        let options = vec![
+            CreateCommandOption::new(
+                CommandOptionType::SubCommandGroup,
+                "set",
+                "Set Tara's settings for this guild",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::SubCommand,
+                    "maximum_content_output_chars",
+                    "The maximum length, in characters, of content from APIs.",
+                )
+                .add_sub_option(
+                    CreateCommandOption::new(
+                        CommandOptionType::Integer,
+                        "chars",
+                        "Length in chars (80 MIN, 1900 MAX)",
+                    )
+                    .add_int_choice("default", super::wiki::Wiki::DEFAULT_MAX_WIKI_LEN as i32)
+                    .required(true),
+                ),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::SubCommand,
+                    "add_self_assignable_role",
+                    "Add a role to the list of roles that users can self-assign",
+                )
+                .add_sub_option(
+                    CreateCommandOption::new(CommandOptionType::Role, "role", "The role to add")
+                        .required(true),
+                ),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::SubCommand,
+                    "remove_self_assignable_role",
+                    "Remove a role from the list of roles that users can self-assign",
+                )
+                .add_sub_option(
+                    CreateCommandOption::new(CommandOptionType::Role, "role", "The role to remove")
+                        .required(true),
+                ),
+            ),
+            CreateCommandOption::new(
+                CommandOptionType::SubCommandGroup,
+                "view",
+                "View a setting's value",
+            )
+            .add_sub_option(CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "maximum_content_output_chars",
+                "The maximum length, in characters, of content from APIs.",
+            )),
+        ];
+
+        CreateCommand::new(self.name())
+            .description("View or modify Tara's settings for this guild")
             .default_member_permissions(Permissions::MANAGE_GUILD)
-            .create_option(|option| {
-                option
-                    .name("set")
-                    .description("Set bot settings for this guild")
-                    .kind(CommandOptionType::SubCommandGroup)
-                    .create_sub_option(|option| {
-                        option
-                            .name("maximum_content_output_chars")
-                            .description("The maximum length, in characters, of content from APIs.")
-                            .kind(CommandOptionType::SubCommand)
-                            .create_sub_option(|option| {
-                                option
-                                    .kind(CommandOptionType::Integer)
-                                    .name("chars")
-                                    .description("Length in chars (80 MIN, 1900 MAX)")
-                                    .required(true)
-                            })
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("add_self_assignable_role")
-                            .description("Add a role to the list of roles that users can self-assign")
-                            .kind(CommandOptionType::SubCommand)
-                            .create_sub_option(|option| {
-                                option
-                                    .kind(CommandOptionType::Role)
-                                    .name("role")
-                                    .description("The role to add")
-                                    .required(true)
-                            })
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("remove_self_assignable_role")
-                            .description("Remove a role from the list of roles that users can self-assign")
-                            .kind(CommandOptionType::SubCommand)
-                            .create_sub_option(|option| {
-                                option
-                                    .kind(CommandOptionType::Role)
-                                    .name("role")
-                                    .description("The role to remove")
-                                    .required(true)
-                            })
-                    })
-            })
-            .create_option(|option| {
-                option
-                    .name("view")
-                    .description("View a setting's value.")
-                    .kind(CommandOptionType::SubCommandGroup)
-                    .create_sub_option(|option| {
-                        option
-                            .name("maximum_content_output_chars")
-                            .description("The maximum length, in characters, of content from APIs.")
-                            .kind(CommandOptionType::SubCommand)
-                    })
-            })
+            .dm_permission(true)
+            .set_options(options)
     }
 
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        guild: Option<Guild>,
         _config: Arc<crate::config::Configuration>,
-        databases: Arc<crate::database::Databases>,
+        _databases: Arc<crate::database::Databases>,
     ) -> crate::Result<String> {
         let option = &command.data.options[0];
+        let databases = Databases::open().await?;
+        let guild = guild.unwrap();
         match &*option.name {
             "set" => {
-                let option = &option.options[0];
+                let option = &super::core::suboptions(option)[0];
                 match &*option.name {
                     "maximum_content_output_chars" => {
-                        return set::maximum_content_output_chars(
-                            &databases,
-                            option,
-                            command.guild_id.unwrap(),
-                        )
+                        return set::maximum_content_output_chars(&databases, option, guild.id)
                     }
                     "add_self_assignable_role" => {
-                        return set::update_self_assignable_role(
-                            &databases,
-                            option,
-                            command.guild_id.unwrap(),
-                            false,
-                        )
+                        return set::update_self_assignable_role(&databases, option, guild, false)
                     }
 
                     "remove_self_assignable_role" => {
-                        return set::update_self_assignable_role(
-                            &databases,
-                            option,
-                            command.guild_id.unwrap(),
-                            true,
-                        )
+                        return set::update_self_assignable_role(&databases, option, guild, true)
                     }
                     _ => unreachable!(),
                 }
             }
             "view" => {
-                let option = &option.options[0];
+                let option = &super::core::suboptions(option)[0];
                 match &*option.name {
                     "maximum_content_output_chars" => {
                         return view::maximum_content_output_chars(command, &databases);
