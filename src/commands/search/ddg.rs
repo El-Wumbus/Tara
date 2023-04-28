@@ -12,7 +12,7 @@ pub struct SearchResult {
 }
 
 impl std::hash::Hash for SearchResult {
-    fn hash<H: ~const std::hash::Hasher>(&self, state: &mut H) { self.title.hash(state); }
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.title.hash(state); }
 }
 
 impl std::cmp::PartialEq for SearchResult {
