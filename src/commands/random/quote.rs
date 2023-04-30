@@ -75,14 +75,11 @@ mod tests {
     #[test]
     fn test_random_quote_display() {
         let quote = Random {
-            id:            "NONE".to_string(),
             content:       "This is a quote".to_string(),
             author:        "Rust Test".to_string(),
             tags:          Vec::new(),
-            author_slug:   "NONE".to_string(),
             length:        17,
-            date_added:    "NONE".to_string(),
-            date_modified: "NONE".to_string(),
+            ..Default::default()
         };
 
         assert_eq!(quote.to_string(), "*This is a quote*\n\t—Rust Test");
@@ -91,14 +88,11 @@ mod tests {
     #[test]
     fn test_quote_display() {
         let quote = Quote::Random(Random {
-            id:            "NONE".to_string(),
             content:       "This is a quote".to_string(),
             author:        "Rust Test".to_string(),
             tags:          Vec::new(),
-            author_slug:   "NONE".to_string(),
             length:        17,
-            date_added:    "NONE".to_string(),
-            date_modified: "NONE".to_string(),
+            ..Default::default()
         });
 
         assert_eq!(quote.to_string(), "*This is a quote*\n\t—Rust Test");
