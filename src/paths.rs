@@ -93,10 +93,7 @@ pub fn database_directory() -> Result<path::PathBuf> {
         paths.push(path::PathBuf::from(defaults::FALLBACK_DATABASE_DIRECTORY))
     }
 
-    match paths.into_iter().find(|path| path.is_dir()) {
-        None => Err(Error::DatabaseFile),
-        Some(x) => Ok(x),
-    }
+    paths.into_iter().next().ok_or(Error::DatabaseFile)
 }
 
 /// Returns a configuration file after checking some of the default locations.

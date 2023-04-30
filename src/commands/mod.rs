@@ -92,7 +92,8 @@ pub async fn run_command(
             .await
         {
             Err(e) => notify_user_of_error(e, &context.http, &command, error_messages.clone()).await,
-            Ok(x) => give_user_results(x, &context.http, &command).await,
+            Ok(x) if !x.is_empty() => give_user_results(x, &context.http, &command).await,
+            _ => (),
         }
     }
     else {

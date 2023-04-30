@@ -3,7 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serenity::{
     all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, Guild},
-    builder::{CreateCommand, CreateCommandOption},
+    builder::{
+        CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
+        CreateInteractionResponseMessage,
+    },
     prelude::Context,
 };
 use truncrate::TruncateToBoundary;
@@ -40,7 +43,7 @@ impl DiscordCommand for Wiki {
 
     async fn run(
         &self,
-        _context: &Context,
+        context: &Context,
         command: &CommandInteraction,
         _guild: Option<Guild>,
         _config: Arc<config::Configuration>,
@@ -58,9 +61,9 @@ impl DiscordCommand for Wiki {
         };
 
         let page = Page::search(&title).await?;
-        let url = &page.url.clone();
-        let summary = page.get_summary();
-        let mut content = summary.await?;
+        let url = page.url.clone();
+        let title = page.title.clone();
+        let mut content = page.get_summary().await?;
 
         let max = super::core::get_max_content_len(command, &databases)?;
         // Truncate wiki content.
@@ -68,7 +71,18 @@ impl DiscordCommand for Wiki {
             content = format!("{}…", content.truncate_to_boundary(max));
         }
 
-        Ok(format!("{content}\n{url}"))
+        // Create an embed from everything
+        let embed = CreateEmbed::new()
+            .title(title.to_string())
+            .description(content)
+            .url(url.to_string());
+        let response =
+            CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed(embed));
+        if let Err(e) = command.create_response(&context.http, response).await {
+            log::error!("Couldn't respond to command: {e}");
+        }
+
+        Ok("".to_string())
     }
 
     fn name(&self) -> String { String::from("wikipedia") }
