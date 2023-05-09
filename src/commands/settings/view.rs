@@ -1,12 +1,9 @@
-use serenity::all::CommandInteraction;
+use serenity::all::GuildId;
 
-use crate::Result;
+use crate::{database, Result};
 
 
-pub fn maximum_content_output_chars(
-    command: &CommandInteraction,
-    databases: &crate::database::Databases,
-) -> Result<String> {
-    let max = super::super::core::get_max_content_len(command, databases)?;
-    Ok(format!("maximum_content_output_chars = {max}"))
+pub async fn content_character_limit(guild_id: Option<GuildId>, guilds: &database::Guilds) -> Result<String> {
+    let max = crate::commands::core::get_content_character_limit(guild_id, guilds).await?;
+    Ok(format!("content_character_limit = {max}"))
 }

@@ -1,14 +1,10 @@
-use std::{num::NonZeroU64, sync::Arc};
-
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, RoleId},
+    all::{CommandDataOptionValue, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
-    model::prelude::Guild,
-    prelude::Context,
 };
 
-use super::DiscordCommand;
+use super::{CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 
 pub const COMMAND: RoleCMD = RoleCMD;
@@ -47,29 +43,26 @@ impl DiscordCommand for RoleCMD {
     }
 
     /// Run the discord command
-    async fn run(
-        &self,
-        context: &Context,
-        command: &CommandInteraction,
-        guild: Option<Guild>,
-        _config: Arc<crate::config::Configuration>,
-        databases: Arc<crate::database::Databases>,
-    ) -> Result<String> {
-        let option = &command.data.options[0];
-        let guild = guild.unwrap();
-        let roles = super::core::get_role_ids(&databases, guild.id)?;
+    async fn run(&self, args: CommandArguments) -> Result<String> {
+        let option = &args.command.data.options[0];
+        let guild = args.guild.ok_or_else(|| Error::InternalLogic)?;
+        let prefs = args
+            .guild_preferences
+            .get(guild.id)
+            .await
+            .ok_or_else(|| Error::InternalLogic)?;
+        let roles = prefs
+            .all_assignable_discord_roles(&args.context.http)
+            .await
+            .unwrap();
 
         match &*option.name {
             "list" => {
-                // We can unwrap because this command cannot run in DMs
-                let guild = guild.id.to_partial_guild(&context.http).await.unwrap();
-                let guild_roles = guild.roles;
-                let roles: String = roles
-                    .into_iter()
-                    .filter_map(|role_id| guild_roles.get(&RoleId(NonZeroU64::new(role_id).unwrap())))
+                let roles = roles
+                    .iter()
                     .map(|role| &*role.name)
                     .collect::<Vec<&str>>()
-                    .join(",");
+                    .join(", ");
 
                 return Ok(format!("Self-assignable roles:\n> {roles}"));
             }
@@ -79,16 +72,16 @@ impl DiscordCommand for RoleCMD {
                     let CommandDataOptionValue::Role(role_id) = super::core::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
                     guild.roles.get(&role_id).unwrap()
                 };
-                if !roles.contains(&u64::from(*role.id.as_inner())) {
+                if !roles.iter().any(|x| x.id.eq(&role.id)) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = command.member.to_owned().unwrap();
+                let mut member = args.command.member.to_owned().unwrap();
 
                 // Add role
                 member
-                    .add_role(&context.http, role.id)
+                    .add_role(&args.context.http, role.id)
                     .await
                     .map_err(Error::UserRole)?;
 
@@ -101,20 +94,20 @@ impl DiscordCommand for RoleCMD {
                     guild.roles.get(&role_id).unwrap()
                 };
 
-                if !roles.contains(&u64::from(*role.id.as_inner())) {
+                if !roles.iter().any(|x| x.id.eq(&role.id)) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = command.member.to_owned().unwrap();
+                let mut member = args.command.member.to_owned().unwrap();
 
                 // Remove role
                 member
-                    .remove_role(&context.http, role.id)
+                    .remove_role(&args.context.http, role.id)
                     .await
                     .map_err(Error::UserRole)?;
 
-                return Ok(format!("Added {}", role.name));
+                return Ok(format!("Removed {}", role.name));
             }
 
             _ => return Err(Error::InternalLogic),

@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
+    all::{CommandDataOptionValue, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
-    model::prelude::Guild,
-    prelude::Context,
 };
 use tokio::sync::Mutex;
 
-use super::DiscordCommand;
+use super::{CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 
 mod currency;
@@ -78,16 +74,9 @@ impl DiscordCommand for Conversions {
             .set_options(options)
     }
 
-    async fn run(
-        &self,
-        _context: &Context,
-        command: &CommandInteraction,
-        _guild: Option<Guild>,
-        config: Arc<crate::config::Configuration>,
-        _databases: Arc<crate::database::Databases>,
-    ) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<String> {
         use super::core::suboptions;
-        let option = &command.data.options[0];
+        let option = &args.command.data.options[0];
         match &*option.name {
             "temperature" => {
                 let options = suboptions(option);
@@ -103,7 +92,7 @@ impl DiscordCommand for Conversions {
                 temperature::convert(&input, &output)
             }
             "currency" => {
-                let api_key = match config.secrets.currency_api_key.clone() {
+                let api_key = match args.config.secrets.currency_api_key.clone() {
                     None => {
                         return Err(Error::FeatureDisabled(
                             "Currency conversion is disabled on this instance. Contact the host to enable \
