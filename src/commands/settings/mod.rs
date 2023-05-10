@@ -30,8 +30,8 @@ impl DiscordCommand for Settings {
             .add_sub_option(
                 CreateCommandOption::new(
                     CommandOptionType::SubCommand,
-                    "maximum_content_output_chars",
-                    "The maximum length, in characters, of content from APIs.",
+                    "content_character_limit",
+                    "The charater limit on content retrived from external sources",
                 )
                 .add_sub_option(
                     CreateCommandOption::new(
@@ -39,7 +39,6 @@ impl DiscordCommand for Settings {
                         "chars",
                         "Length in chars (80 MIN, 1900 MAX)",
                     )
-                    .add_int_choice("default", super::wiki::Wiki::DEFAULT_MAX_WIKI_LEN as i32)
                     .required(true),
                 ),
             )
@@ -72,8 +71,8 @@ impl DiscordCommand for Settings {
             )
             .add_sub_option(CreateCommandOption::new(
                 CommandOptionType::SubCommand,
-                "maximum_content_output_chars",
-                "The maximum length, in characters, of content from APIs.",
+                "content_character_limit",
+                "The charater limit on content retrived from external sources",
             )),
         ];
 
@@ -91,7 +90,7 @@ impl DiscordCommand for Settings {
             "set" => {
                 let option = &super::core::suboptions(option)[0];
                 match &*option.name {
-                    "maximum_content_output_chars" => {
+                    "content_character_limit" => {
                         return set::content_character_limit(&args.guild_preferences, option, guild.id).await
                     }
                     "add_self_assignable_role" => {
@@ -119,7 +118,7 @@ impl DiscordCommand for Settings {
             "view" => {
                 let option = &super::core::suboptions(option)[0];
                 match &*option.name {
-                    "maximum_content_output_chars" => {
+                    "content_character_limit" => {
                         return view::content_character_limit(args.command.guild_id, &args.guild_preferences)
                             .await;
                     }
