@@ -26,8 +26,6 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <summary>Linux</summary>
 
 > The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [may be outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release].
-> If using `cargo install`, some dependencies won't automatically be installed. You'll need to install `sqlite3` previous to running the instructions.
-> On Debian and Ubuntu systems the required package is `libsqlite3-dev`, on Arch and related systems it's `sqlite`.
 >
 > | Distribution | Repository      | Instructions                  |
 > | ------------ | --------------- | ----------------------------- |
