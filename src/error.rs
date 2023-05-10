@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tokio::task;
+use tokio::{io, task};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -52,17 +52,14 @@ pub enum Error {
     #[error("JSONParseError: {0}")]
     JsonParse(String),
 
+    #[error("RonParseError: {0}")]
+    RonParse(String),
+
     #[error("WikipedaSearch: Page not found for \"{0}\"")]
     WikipedaSearch(String),
 
-    #[error("DatabaseOpenError: {0}")]
-    DatabaseOpen(r2d2::Error),
-
-    #[error("DatabaseAccessError: {0}")]
-    DatabaseAccess(rusqlite::Error),
-
-    #[error("DatabaseAccessTimeoutError: {0}")]
-    DatabaseAccessTimeout(r2d2::Error),
+    #[error("RedisError: {0}")]
+    RedisError(String),
 
     #[error("NoDatabaseRecordError")]
     NoDatabaseRecord,
@@ -103,6 +100,18 @@ pub enum Error {
     UndefinedWord(String),
 }
 
+impl From<io::Error> for Error {
+    fn from(value: io::Error) -> Self { Self::Io(value) }
+}
+
+impl From<ron::de::SpannedError> for Error {
+    fn from(value: ron::de::SpannedError) -> Self { Self::RonParse(value.to_string()) }
+}
+
+impl From<ron::Error> for Error {
+    fn from(value: ron::Error) -> Self { Self::RonParse(value.to_string()) }
+}
+
 impl Error {
     const fn _code(&self) -> u8 {
         match self {
@@ -117,9 +126,8 @@ impl Error {
             Error::CommandMisuse(_) => 8,
             Error::JsonParse(_) => 9,
             Error::WikipedaSearch(_) => 10,
-            Error::DatabaseOpen(_) => 11,
-            Error::DatabaseAccess(_) => 12,
-            Error::DatabaseAccessTimeout(_) => 13,
+            Error::RonParse(_) => 11,
+            Error::RedisError(_) => 13,
             Error::InternalLogic => 14,
             Error::ParseNumber(_) => 15,
             Error::FeatureDisabled(_) => 16,
@@ -147,8 +155,4 @@ impl From<task::JoinError> for Error {
 
 impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self { Self::HttpRequest(value) }
-}
-
-impl From<rusqlite::Error> for Error {
-    fn from(value: rusqlite::Error) -> Self { Self::DatabaseAccess(value) }
 }

@@ -16,9 +16,12 @@ use tokio::fs;
 mod error;
 pub use error::*;
 
+use crate::database::GuildPreferences;
+
 mod commands;
 mod config;
 mod database;
+mod defaults;
 mod paths;
 
 const NAME: &str = "Tara";
@@ -85,10 +88,18 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILDS;
 
+    let guilds = match database::Guilds::load().await {
+        Err(_) => {
+            database::Guilds::create().await?;
+            database::Guilds::load().await?
+        }
+        Ok(x) => x,
+    };
+
     // Initialize && start client
     let mut client = Client::builder(config.secrets.token.clone(), intents)
         .event_handler(EventHandler {
-            databases: database::Databases::open().await?,
+            guilds: guilds.clone(),
             config,
             error_messages: error_messages.await,
         })
@@ -179,11 +190,10 @@ async fn init() -> Result<()> {
     };
 
     let config = config::Configuration {
-        secrets: config::ConfigurationSecrets {
+        secrets:              config::ConfigurationSecrets {
             token:            token.clone(),
             currency_api_key: currency_api_key.clone(),
         },
-        direct_message_cooldown,
         random_error_message: random_error_message.clone(),
     };
 
@@ -223,7 +233,7 @@ async fn init() -> Result<()> {
 struct EventHandler {
     config:         Arc<config::Configuration>,
     error_messages: Arc<config::ErrorMessages>,
-    databases:      Arc<database::Databases>,
+    guilds:         database::Guilds,
 }
 
 
@@ -240,7 +250,7 @@ impl client::EventHandler for EventHandler {
                 command,
                 guild,
                 self.config.clone(),
-                self.databases.clone(),
+                self.guilds.clone(),
                 self.error_messages.clone(),
             )
             .await;
@@ -263,21 +273,16 @@ impl client::EventHandler for EventHandler {
         // database. If it's not, we add it with the default configuration.
         let guilds = ready.guilds.iter().map(|x| x.id);
         for guild_id in guilds {
-            match self.databases.contains("guilds", guild_id) {
-                Ok(x) => {
-                    if !x {
-                        if let Err(e) = self.databases.guilds_insert_default(guild_id) {
-                            log::error!("Couldn't add guild to database (\"{guild_id}\"): {e}");
-                        }
-                        else {
-                            log::info!("Added guild to database (\"{guild_id}\")");
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("Couldn't add guild to database (\"{guild_id}\"): {e}");
-                }
+            if self.guilds.contains(guild_id).await {
+                // Insert the guild
+                self.guilds.insert(GuildPreferences::default(guild_id)).await;
             }
+        }
+        if let Err(e) = self.guilds.save().await {
+            log::error!("Couldn't add guilds to database: {e}");
+        }
+        else {
+            log::info!("Added guilds to database");
         }
     }
 }

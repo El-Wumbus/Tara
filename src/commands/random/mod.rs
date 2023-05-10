@@ -1,18 +1,15 @@
 //! Produce pseudo-random outcomes
 
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use rand::Rng;
 use serenity::{
-    all::{CommandInteraction, CommandOptionType},
+    all::CommandOptionType,
     builder::{CreateCommand, CreateCommandOption},
-    model::prelude::Guild,
-    prelude::Context,
 };
 
-use super::DiscordCommand;
-use crate::{config, Error, Result};
+use super::{CommandArguments, DiscordCommand};
+use crate::{Error, Result};
 
 mod images;
 mod quote;
@@ -59,15 +56,8 @@ impl DiscordCommand for Random {
             .set_options(options)
     }
 
-    async fn run(
-        &self,
-        _context: &Context,
-        command: &CommandInteraction,
-        _guild: Option<Guild>,
-        _config: Arc<config::Configuration>,
-        _databases: Arc<crate::database::Databases>,
-    ) -> Result<String> {
-        let option = &command.data.options[0];
+    async fn run(&self, args: CommandArguments) -> Result<String> {
+        let option = &args.command.data.options[0];
         match &*option.name {
             "coin" => Ok(coin_flip()),
             "quote" => quote::random().await,
