@@ -9,20 +9,15 @@ use serenity::{
     prelude::*,
     Client,
 };
-use structopt::{clap::AppSettings::*, StructOpt};
+use structopt::{clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands}, StructOpt};
+use tara::{
+    database::{self, GuildPreferences},
+    paths,
+    config,
+    commands,
+    error::{Error, Result},
+};
 use tokio::fs;
-
-
-mod error;
-pub use error::*;
-
-use crate::database::GuildPreferences;
-
-mod commands;
-mod config;
-mod database;
-mod defaults;
-mod paths;
 
 const NAME: &str = "Tara";
 const DESCRIPTION: &str = "A modern self-hostable Discord bot.";
@@ -90,9 +85,7 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
 
     let guilds = match database::Guilds::load().await {
         Err(_) => {
-            database::Guilds::create().await?;
-            database::Guilds::load().await?
-        }
+            database::Guilds::create().await?        }
         Ok(x) => x,
     };
 

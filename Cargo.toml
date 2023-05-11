@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "tara",
+    "tara-web-config",
 ]
 
 [profile.release]

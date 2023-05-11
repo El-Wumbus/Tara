@@ -43,7 +43,7 @@ impl DiscordCommand for Define {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<String> {
         let (word, audio) = {
             // Get the role argument
             let mut word = String::new();
