@@ -1,12 +1,13 @@
 [workspace]
-members = [
-    "tara",
-    "tara-web-config",
-]
+members = ["tara", "tara-web-config"]
 
 [profile.release]
 lto = "thin"
 strip = true
+
+[profile.release.package."tara-web-config"]
+opt-level = 'z'
+codegen-units = 1
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
