@@ -174,6 +174,13 @@ pub mod core {
         defaults,
     };
 
+    #[must_use]
+    /// Gets the suboptions of a subcommand or subcommandgroup.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `option.value` isn't a [`CommandDataOptionValue::SubCommand`] or
+    /// [`CommandDataOptionValue::SubCommandGroup`]
     pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
         let mut val = None;
         match &option.value {
@@ -205,7 +212,7 @@ pub mod core {
 
     #[must_use]
     /// Remove the first of any suffixes found in `suffixes` from the input string.
-    pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String {
+    pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
         let input_bytes = input.as_bytes();
         let mut _suffix_bytes: &[u8];
 
@@ -215,6 +222,6 @@ pub mod core {
             }
         }
 
-        input.to_owned()
+        input.to_string()
     }
 }
