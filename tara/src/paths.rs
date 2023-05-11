@@ -1,6 +1,6 @@
 use std::path;
 
-use crate::{Error, Result};
+use crate::error::{Error, Result};
 
 #[cfg(target_os = "linux")]
 mod defaults {
@@ -17,6 +17,7 @@ mod defaults {
 }
 
 #[inline]
+#[must_use]
 pub fn project_dir() -> Option<directories::ProjectDirs> {
     directories::ProjectDirs::from("com.github", "El-Wumbus", "Tara")
 }
@@ -25,14 +26,12 @@ pub fn project_dir() -> Option<directories::ProjectDirs> {
 ///
 /// # File Locations
 ///
-/// The lower the number, before it checks.
-///
 /// ## Linux
 ///
-/// 1. `$XDG_CONFIG_HOME/Tara/tara.toml` or `$HOME/.config/Tara/tara.toml`
+/// 1. `$XDG_CONFIG_HOME/Tara/tara.toml` or `$HOME/.config/Tara/tara.toml`  
 /// 2. `/etc/tara.d/tara.toml`
 ///
-/// ## MacOS
+/// ## macOS
 ///
 /// 1. `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/tara.toml`
 ///
@@ -51,7 +50,7 @@ pub fn config_file_path() -> Result<path::PathBuf> {
         paths.push(project_dirs.config_dir().join("tara.toml"));
     }
     if !defaults::FALLBACK_CONFIG_FILE.is_empty() {
-        paths.push(path::PathBuf::from(defaults::FALLBACK_CONFIG_FILE))
+        paths.push(path::PathBuf::from(defaults::FALLBACK_CONFIG_FILE));
     }
 
     match paths.into_iter().find(|path| path.is_file()) {
@@ -64,14 +63,12 @@ pub fn config_file_path() -> Result<path::PathBuf> {
 ///
 /// # File Locations
 ///
-/// The lower the number, before it checks.
-///
 /// ## Linux
 ///
-/// 1. `$XDG_DATA_HOME/Tara` or `$HOME/.local/share/Tara/`
+/// 1. `$XDG_DATA_HOME/Tara` or `$HOME/.local/share/Tara/`  
 /// 2. `/var/db/tara/`
 ///
-/// ## MacOS
+/// ## macOS
 ///
 /// 1. `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/`
 ///
@@ -90,24 +87,24 @@ pub fn database_directory() -> Result<path::PathBuf> {
         paths.push(path::PathBuf::from(project_dirs.data_dir()));
     }
     if !defaults::FALLBACK_DATABASE_DIRECTORY.is_empty() {
-        paths.push(path::PathBuf::from(defaults::FALLBACK_DATABASE_DIRECTORY))
+        paths.push(path::PathBuf::from(defaults::FALLBACK_DATABASE_DIRECTORY));
     }
 
     paths.into_iter().next().ok_or(Error::DatabaseFile)
 }
 
+#[must_use]
 /// Returns a configuration file after checking some of the default locations.
 ///
 /// # File Locations
 ///
-/// The lower the number, before it checks.
-///
 /// ## Linux
 ///
 /// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or
-/// `$HOME/.config/Tara/error_messages.json` 2. `/etc/tara.d/error_messages.json`
+/// `$HOME/.config/Tara/error_messages.json`  
+/// 2. `/etc/tara.d/error_messages.json`  
 ///
-/// ## MacOS
+/// ## macOS
 ///
 /// 1. `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/error_messages.json`
 ///
@@ -120,7 +117,7 @@ pub fn error_messages_file_path() -> Option<path::PathBuf> {
         paths.push(project_dirs.config_dir().join("error_messages.json"));
     }
     if !defaults::FALLBACK_ERROR_MESSAGES_FILE.is_empty() {
-        paths.push(path::PathBuf::from(defaults::FALLBACK_ERROR_MESSAGES_FILE))
+        paths.push(path::PathBuf::from(defaults::FALLBACK_ERROR_MESSAGES_FILE));
     }
 
     paths.into_iter().find(|path| path.is_file())

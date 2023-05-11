@@ -113,7 +113,7 @@ impl Page {
             Err(e) => return Err(Error::JsonParse(e.to_string())),
         };
 
-        let summary_text = resp.query.pages.get(0).unwrap().extract.to_owned();
+        let summary_text = resp.query.pages.get(0).unwrap().extract.clone();
 
         Ok(summary_text)
     }

@@ -17,7 +17,7 @@ mod random;
 mod role;
 mod search;
 mod settings;
-pub mod wiki;
+mod wiki;
 
 macro_rules! discord_command {
     ($cmd:expr) => {
@@ -41,7 +41,7 @@ crate::commands::lazy_static! {
 
     /// Command name to `COMMANDS` index value.
     /// Every name corresponds to the index of that command.
-    pub static ref COMMAND_MAP: Arc<HashMap<String, usize>> = Arc::new({
+    static ref COMMAND_MAP: Arc<HashMap<String, usize>> = Arc::new({
         let mut map = HashMap::new();
         for (i, cmd) in COMMANDS.iter().enumerate() {
             let name = cmd.name();
@@ -54,11 +54,11 @@ crate::commands::lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct CommandArguments {
-    pub context:           Arc<Context>,
-    pub command:           Arc<CommandInteraction>,
-    pub guild:             Option<Guild>,
-    pub config:            Arc<config::Configuration>,
-    pub guild_preferences: database::Guilds,
+    context:           Arc<Context>,
+    command:           Arc<CommandInteraction>,
+    guild:             Option<Guild>,
+    config:            Arc<config::Configuration>,
+    guild_preferences: database::Guilds,
 }
 
 #[async_trait]
@@ -174,6 +174,13 @@ pub mod core {
         defaults,
     };
 
+    #[must_use]
+    /// Gets the suboptions of a subcommand or subcommandgroup.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `option.value` isn't a [`CommandDataOptionValue::SubCommand`] or
+    /// [`CommandDataOptionValue::SubCommandGroup`]
     pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
         let mut val = None;
         match &option.value {
@@ -205,7 +212,7 @@ pub mod core {
 
     #[must_use]
     /// Remove the first of any suffixes found in `suffixes` from the input string.
-    pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String {
+    pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
         let input_bytes = input.as_bytes();
         let mut _suffix_bytes: &[u8];
 
@@ -215,6 +222,6 @@ pub mod core {
             }
         }
 
-        input.to_owned()
+        input.to_string()
     }
 }

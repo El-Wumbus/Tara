@@ -197,7 +197,7 @@ impl Currency {
         let mut value;
         match s {
             _ if s.ends_with("usd") || s.ends_with("dollar") || s.starts_with('$') => {
-                s = strip_suffixes(s, &["usd", "dollar"]);
+                s = strip_suffixes(&s, &["usd", "dollar"]);
                 s = match s.strip_prefix('$') {
                     Some(s) => s,
                     None => &s,
@@ -212,7 +212,7 @@ impl Currency {
                 || s.ends_with("gbp")
                 || s.starts_with('£') =>
             {
-                s = strip_suffixes(s, &["quid", "pound", "pounds", "sterling", "gbp"]);
+                s = strip_suffixes(&s, &["quid", "pound", "pounds", "sterling", "gbp"]);
                 s = match s.strip_prefix('£') {
                     Some(s) => s,
                     None => &s,
@@ -221,7 +221,7 @@ impl Currency {
                 currency = Name::Gbp;
             }
             _ if s.ends_with("eur") || s.ends_with("euro") || s.starts_with('€') => {
-                s = strip_suffixes(s, &["eur", "eruo"]);
+                s = strip_suffixes(&s, &["eur", "eruo"]);
                 s = match s.strip_prefix('€') {
                     Some(s) => s,
                     None => &s,
@@ -230,24 +230,24 @@ impl Currency {
                 currency = Name::Eur;
             }
             _ if s.ends_with("rub") || s.ends_with("ruble") => {
-                s = strip_suffixes(s, &["ruble", "rub"]);
+                s = strip_suffixes(&s, &["ruble", "rub"]);
                 currency = Name::Rub;
             }
             _ if s.ends_with("amd") || s.ends_with("dram") => {
-                s = strip_suffixes(s, &["amd", "dram"]);
+                s = strip_suffixes(&s, &["amd", "dram"]);
                 currency = Name::Amd;
             }
 
             _ if s.ends_with("cad") => {
-                s = strip_suffixes(s, &["cad"]);
+                s = strip_suffixes(&s, &["cad"]);
                 currency = Name::Cad;
             }
             _ if s.ends_with("aud") => {
-                s = strip_suffixes(s, &["aud"]);
+                s = strip_suffixes(&s, &["aud"]);
                 currency = Name::Aud;
             }
             _ if s.ends_with("yen") || s.ends_with("jpy") || s.starts_with('¥') => {
-                s = strip_suffixes(s, &["yen", "jpy"]);
+                s = strip_suffixes(&s, &["yen", "jpy"]);
                 s = match s.strip_prefix('¥') {
                     Some(s) => s,
                     None => &s,
@@ -256,7 +256,7 @@ impl Currency {
                 currency = Name::Jpy;
             }
             _ if s.ends_with("pkr") || s.ends_with("pakistani rupee") => {
-                s = strip_suffixes(s, &["pkr", "pakistani rupee"]);
+                s = strip_suffixes(&s, &["pkr", "pakistani rupee"]);
                 currency = Name::Pkr;
             }
             _ => return Err(Error::ParseNumber(format!("\"{s}\": Invalid unit provided"))),

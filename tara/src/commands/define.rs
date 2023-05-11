@@ -43,7 +43,7 @@ impl DiscordCommand for Define {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<String> {
         let (word, audio) = {
             // Get the role argument
             let mut word = String::new();
@@ -65,12 +65,8 @@ impl DiscordCommand for Define {
 
         // Create an embed from everything
         let mut total_length = 0usize;
-        let word = words[0].to_owned();
-        let phonetic_text = word
-            .phonetics
-            .iter()
-            .filter_map(|phonetic| phonetic.text.clone())
-            .next();
+        let word = words[0].clone();
+        let phonetic_text = word.phonetics.iter().find_map(|phonetic| phonetic.text.clone());
 
         // let phonetic_audio = word.phonetics.iter().filter_map(|phonetic| phonetic.audio)
         let title = if let Some(phonetic_text) = phonetic_text {
@@ -138,7 +134,7 @@ impl DiscordCommand for Define {
             log::error!("Couldn't respond to command: {e}");
         }
 
-        Ok("".into())
+        Ok(String::new())
     }
 
     fn name(&self) -> String { String::from("define") }
