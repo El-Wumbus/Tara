@@ -1,15 +1,12 @@
 use async_trait::async_trait;
 use serenity::{
     all::{CommandDataOptionValue, CommandOptionType},
-    builder::{
-        CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseMessage,
-    },
+    builder::{CreateCommand, CreateCommandOption, CreateEmbed},
 };
 use truncrate::TruncateToBoundary;
 
 use super::{CommandArguments, DiscordCommand};
-use crate::Result;
+use crate::{commands::CommandResponse, Result};
 
 mod api;
 
@@ -34,7 +31,7 @@ impl DiscordCommand for Wiki {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
         use api::Page;
 
         let title = {
@@ -63,14 +60,9 @@ impl DiscordCommand for Wiki {
             .title(title.to_string())
             .description(content)
             .url(url.to_string());
-        let response =
-            CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed(embed));
-        if let Err(e) = args.command.create_response(&args.context.http, response).await {
-            log::error!("Couldn't respond to command: {e}");
-        }
 
-        Ok(String::new())
+        Ok(CommandResponse::Embed(embed))
     }
 
-    fn name(&self) -> String { String::from("wikipedia") }
+    fn name(&self) -> &'static str { "wikipedia" }
 }

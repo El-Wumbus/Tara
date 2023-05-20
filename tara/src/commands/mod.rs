@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use lazy_static::lazy_static;
 use serenity::{
     all::{CommandInteraction, Guild},
-    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
+    builder::{CreateCommand, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
     prelude::Context,
 };
 
 use crate::{config, database, Error, Result};
 
-mod core;
 mod conversions;
+mod core;
 mod define;
 mod random;
 mod role;
@@ -20,37 +20,34 @@ mod search;
 mod settings;
 mod wiki;
 
-macro_rules! discord_command {
+type Command = &'static (dyn DiscordCommand + Sync + Send);
+
+macro_rules! cmd {
     ($cmd:expr) => {
-        Box::new($cmd) as Box<dyn DiscordCommand + Sync + Send>
+        &$cmd as Command
     };
 }
 
-crate::commands::lazy_static! {
+lazy_static! {
+    /// The command map. It corralates command names and commands. It's a  [`HashMap<&'static str, &'static (dyn DiscordCommand + Sync + Send)>`].
+    pub static ref COMMANDS: HashMap<&'static str, Command> = {
+        /// All the commands that get registered and are searched for.
+        const COMMANDS: &[Command] = &[
+            cmd!(random::COMMAND),
+            cmd!(define::COMMAND),
+            cmd!(wiki::COMMAND),
+            cmd!(settings::COMMAND),
+            cmd!(conversions::COMMAND),
+            cmd!(search::COMMAND),
+            cmd!(role::COMMAND),
+        ];
 
-    /// All callable commands
-    pub static ref COMMANDS: Arc<Vec<Box<dyn DiscordCommand + Sync+ Send>>> =
-       Arc::new(vec![
-            discord_command!(random::COMMAND),
-            discord_command!(define::COMMAND),
-            discord_command!(wiki::COMMAND),
-            discord_command!(settings::COMMAND),
-            discord_command!(conversions::COMMAND),
-            discord_command!(search::COMMAND),
-            discord_command!(role::COMMAND),
-        ]);
-
-    /// Command name to `COMMANDS` index value.
-    /// Every name corresponds to the index of that command.
-    static ref COMMAND_MAP: Arc<HashMap<String, usize>> = Arc::new({
-        let mut map = HashMap::new();
-        for (i, cmd) in COMMANDS.iter().enumerate() {
-            let name = cmd.name();
-            map.insert(name, i);
+        let mut map = HashMap::with_capacity(COMMANDS.len());
+        for cmd in COMMANDS {
+            map.insert(cmd.name(), *cmd);
         }
-
         map
-    });
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -62,20 +59,56 @@ pub struct CommandArguments {
     guild_preferences: database::Guilds,
 }
 
+
 #[async_trait]
 pub trait DiscordCommand {
     /// Register the discord command.
     fn register(&self) -> CreateCommand;
 
     /// Run the discord command
-    async fn run(&self, args: CommandArguments) -> Result<String>;
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse>;
 
     /// The name of the command
-    fn name(&self) -> String;
+    fn name(&self) -> &'static str;
 }
 
-#[must_use]
-pub fn get_command_name(command: &CommandInteraction) -> String { command.data.name.to_string() }
+#[derive(Debug, Clone)]
+pub enum CommandResponse {
+    String(String),
+    EphemeralString(String),
+    Embed(CreateEmbed),
+    Message(CreateInteractionResponseMessage),
+    None,
+}
+
+impl CommandResponse {
+    pub fn new_string(s: impl Into<String>) -> Self { Self::from(s.into()) }
+
+    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
+
+    pub async fn send(self, command: &CommandInteraction, http: &Http) {
+        let message = CreateInteractionResponseMessage::new();
+        let response_message = match self {
+            CommandResponse::String(s) => message.content(s),
+            CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
+            CommandResponse::Embed(embed) => message.embed(embed),
+            CommandResponse::Message(message) => message,
+            CommandResponse::None => return,
+        };
+        let response = CreateInteractionResponse::Message(response_message);
+
+        if let Err(e) = command.create_response(http, response).await {
+            log::error!(
+                "Couldn't respond to command ({}): {e}",
+                command.data.name.as_str()
+            );
+        }
+    }
+}
+
+impl From<String> for CommandResponse {
+    fn from(value: String) -> Self { Self::String(value) }
+}
 
 /// Run a command specified by its name.
 pub async fn run_command(
@@ -86,49 +119,46 @@ pub async fn run_command(
     guild_preferences: database::Guilds,
     error_messages: Arc<config::ErrorMessages>,
 ) {
-    let command_name = get_command_name(&command);
-    if let Some(cmd) = COMMAND_MAP.get(&command_name) {
-        let cmd = &COMMANDS[*cmd];
+    let command_name = command.data.name.as_str();
+
+    // Search the command name in the HashMap of commands (`COMMANDS`)
+    if let Some(cmd) = COMMANDS.get(command_name) {
         let context = Arc::new(context);
         let command = Arc::new(command);
-        match cmd
-            .run(CommandArguments {
-                context: context.clone(),
-                command: command.clone(),
-                guild,
-                config: config.clone(),
-                guild_preferences,
-            })
-            .await
-        {
-            Err(e) => notify_user_of_error(e, &context.http, &command, error_messages.clone()).await,
-            Ok(x) if !x.is_empty() => give_user_results(x, &context.http, &command).await,
-            _ => (),
+        let command_arguments = CommandArguments {
+            context: context.clone(),
+            command: command.clone(),
+            guild,
+            config: config.clone(),
+            guild_preferences,
+        };
+
+        // Run the command.
+        match cmd.run(command_arguments).await {
+            Err(e) => notify_user_of_error(e, &context.http, &command, &error_messages).await,
+            Ok(response) if !response.is_none() => response.send(&command, &context.http).await,
+            Ok(content) if content.is_none() => {
+                // Do nothing. content should only be empty if the command we called
+                // already responded.
+            }
+            _ => unreachable!(),
         }
+
+        return;
     }
-    else {
-        // Respond with an ephemeral error message, this means that only the user who
-        // started the interaction can see the error.
-        let response = CreateInteractionResponse::Message(
-            CreateInteractionResponseMessage::new()
-                .content(format!("Command \"{command_name}\" doesn't exist."))
-                .ephemeral(true),
-        );
-        // Respond with an ephemeral error message, this means that only the user who
-        // started the interaction can see the error, and it's dismissable.
-        if let Err(e) = command.create_response(&context.http, response).await {
-            log::error!("Couldn't respond to command: {e}");
-        }
-    }
+
+    CommandResponse::EphemeralString(format!("Command \"{command_name}\" doesn't exist."))
+        .send(&command, &context.http)
+        .await;
 }
 
 pub async fn notify_user_of_error(
     e: Error,
     http: &Http,
     command: &CommandInteraction,
-    error_messages: Arc<config::ErrorMessages>,
+    error_messages: &config::ErrorMessages,
 ) {
-    let error_message = pick_error_message(&error_messages);
+    let error_message = pick_error_message(error_messages);
     let msg = format!(
         "{}: *[{}] {}.*\n{}",
         error_message.0,
@@ -136,31 +166,13 @@ pub async fn notify_user_of_error(
         e,
         error_message.1
     );
-    let response = CreateInteractionResponse::Message(
-        CreateInteractionResponseMessage::new()
-            .content(msg)
-            .ephemeral(true),
-    );
 
-    if let Err(e) = command.create_response(http, response).await {
-        log::error!("Couldn't respond to command: {e}");
-    }
-}
-
-async fn give_user_results(results: String, http: &Http, command: &CommandInteraction) {
-    let response =
-        CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().content(results));
-    if let Err(e) = command.create_response(http, response).await {
-        log::error!("Couldn't respond to command: {e}");
-    }
+    CommandResponse::EphemeralString(msg).send(command, http).await;
 }
 
 /// Randomly select an error message pre/postfix
-fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String) {
+fn pick_error_message(error_messages: &config::ErrorMessages) -> &(String, String) {
     use rand::seq::SliceRandom;
-    error_messages
-        .messages
-        .choose(&mut rand::thread_rng())
-        .unwrap()
-        .clone()
+    // TODO: Don't panic here!
+    error_messages.messages.choose(&mut rand::thread_rng()).unwrap()
 }

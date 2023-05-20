@@ -4,6 +4,7 @@ use serenity::{
 };
 
 use crate::{
+    commands::CommandResponse,
     database::{self, GuildPreferences, SelfAssignableRole},
     Result,
 };
@@ -12,7 +13,7 @@ pub async fn content_character_limit(
     guilds: &database::Guilds,
     option: &CommandDataOption,
     guild_id: GuildId,
-) -> Result<String> {
+) -> Result<CommandResponse> {
     let option = &super::super::core::suboptions(option)[0];
 
     // Get the first option (there's only one, and it's required), then get an
@@ -34,7 +35,7 @@ pub async fn content_character_limit(
 
     // Save changes
     guilds.save().await?;
-    Ok(format!("Set `content_character_limit` to \"{count}\""))
+    Ok(format!("Set `content_character_limit` to \"{count}\"").into())
 }
 
 pub async fn update_self_assignable_roles(
@@ -42,7 +43,7 @@ pub async fn update_self_assignable_roles(
     option: &CommandDataOption,
     guild: Guild,
     remove: bool,
-) -> Result<String> {
+) -> Result<CommandResponse> {
     let option = &super::super::core::suboptions(option)[0];
     let CommandDataOptionValue::Role(role_id) = option.value else {return Err(crate::Error::InternalLogic)};
 
@@ -81,5 +82,5 @@ pub async fn update_self_assignable_roles(
 
     // Save changes
     guilds.save().await?;
-    Ok(format!("Added *self assignable role* \"{name}\""))
+    Ok(format!("Added *self assignable role* \"{name}\"").into())
 }

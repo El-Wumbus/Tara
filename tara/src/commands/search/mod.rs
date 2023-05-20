@@ -5,12 +5,12 @@ use serenity::{
 };
 use truncrate::TruncateToBoundary;
 
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 use crate::Error;
 
 mod ddg;
 
-pub static COMMAND: Search = Search;
+pub const COMMAND: Search = Search;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Search;
@@ -43,7 +43,7 @@ impl DiscordCommand for Search {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+    async fn run(&self, args: CommandArguments) -> crate::Result<CommandResponse> {
         let option = &args.command.data.options[0];
         match &*option.name {
             "duckduckgo" => {
@@ -82,11 +82,11 @@ impl DiscordCommand for Search {
                 if content.len() >= max {
                     content = format!("{}…\n{url}", content.truncate_to_boundary(max));
                 }
-                return Ok(content);
+                return Ok(content.into());
             }
             _ => return Err(Error::InternalLogic),
         }
     }
 
-    fn name(&self) -> String { String::from("search") }
+    fn name(&self) -> &'static str { "search" }
 }
