@@ -83,7 +83,7 @@ impl DiscordCommand for Role {
                 member
                     .add_role(&args.context.http, role.id)
                     .await
-                    .map_err(Error::UserRole)?;
+                    .map_err(|e| Error::UserRole(Box::new(e)))?;
 
                 return Ok(format!("Added {}", role.name));
             }
@@ -105,7 +105,7 @@ impl DiscordCommand for Role {
                 member
                     .remove_role(&args.context.http, role.id)
                     .await
-                    .map_err(Error::UserRole)?;
+                    .map_err(|e| Error::UserRole(Box::new(e)))?;
 
                 return Ok(format!("Removed {}", role.name));
             }

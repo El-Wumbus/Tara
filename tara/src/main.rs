@@ -98,7 +98,7 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
             error_messages: error_messages.await,
         })
         .await
-        .map_err(Error::ClientInitialization)?;
+        .map_err(|e| Error::ClientInitialization(Box::new(e)))?;
 
     if let Err(why) = client.start().await {
         log::error!("Error: {:?}", why);
@@ -191,7 +191,7 @@ async fn init() -> Result<()> {
 
     let config = toml::to_string_pretty(&config).map_err(|e| {
         Error::ConfigurationSave {
-            error: e,
+            error: Box::new(e),
             path:  config_file_path.clone(),
         }
     })?;
