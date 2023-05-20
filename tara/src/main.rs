@@ -6,6 +6,7 @@ use rustyline::{history::FileHistory, Editor};
 use serenity::{
     all::{Command, Guild, Interaction, Ready},
     async_trait, client,
+    gateway::ActivityData,
     prelude::*,
     Client,
 };
@@ -250,6 +251,8 @@ impl client::EventHandler for EventHandler {
 
     async fn ready(&self, context: Context, ready: Ready) {
         log::info!("{} is connected!", ready.user.name);
+        context.set_activity(Some(ActivityData::watching("El-Wumbus/Tara on GitHub")));
+
         log::info!("Registering commands...");
         let global_commands = commands::COMMANDS
             .iter()
