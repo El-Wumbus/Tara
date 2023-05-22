@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
@@ -59,17 +58,7 @@ impl Page {
         );
 
         // Make the API call, parse the json to a `Page`.
-        let page = match {
-            match reqwest::get(&request_url).await {
-                Ok(x) => {
-                    info!("Requested '{}'", request_url);
-                    x
-                }
-                Err(e) => return Err(Error::HttpRequest(e)),
-            }
-            .json::<SearchResult>()
-            .await
-        } {
+        let page = match { reqwest::get(&request_url).await?.json::<SearchResult>().await } {
             Ok(resp) => {
                 let t = match resp.1.get(0) {
                     Some(x) => x.to_string(),
@@ -98,17 +87,7 @@ impl Page {
         );
 
         // Make the API call, parse the json to a `Page`.
-        let resp = match {
-            match reqwest::get(&request_url).await {
-                Ok(x) => {
-                    info!("Requested '{}'", request_url);
-                    x
-                }
-                Err(e) => return Err(Error::HttpRequest(e)),
-            }
-            .json::<SummaryResponse>()
-            .await
-        } {
+        let resp = match { reqwest::get(&request_url).await?.json::<SummaryResponse>().await } {
             Ok(x) => x,
             Err(e) => return Err(Error::JsonParse(e.to_string())),
         };

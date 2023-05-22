@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::{event, Level};
 
 use crate::{commands::core::strip_suffixes, Error, Result};
 
@@ -53,7 +54,10 @@ impl ExchangeRatesResponse {
         let url = format!(
             "https://api.currencyapi.com/v3/latest?apikey={api_key}&currencies=EUR%2CUSD%2CCAD%2CRUB%2CJPY%2CAUD%2CAMD%2CGBP%2CPKR",
         );
-        log::info!("Fetched currency conversion data from api.currencyapi.com");
+        event!(
+            Level::INFO,
+            "Fetched currency conversion data from api.currencyapi.com"
+        );
 
         // Get the response
         let resp = reqwest::get(url)

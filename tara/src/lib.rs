@@ -5,3 +5,4 @@ pub mod commands;
 pub mod config;
 pub mod database;
 pub(crate) mod defaults;
+pub mod logging;
