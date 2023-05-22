@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use lazy_static::lazy_static;
 use serenity::{
     all::{CommandInteraction, Guild},
-    builder::{CreateCommand, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage},
-    http::Http,
+    builder::CreateCommand,
     prelude::Context,
 };
-use tracing::{event, info, Level};
+use tracing::info;
 
 use crate::{
+    commands::core::CommandResponse,
     config, database,
     logging::{CommandLogger, LoggedCommandEvent},
     Result,
@@ -75,45 +75,6 @@ pub trait DiscordCommand {
 
     /// The name of the command
     fn name(&self) -> &'static str;
-}
-
-#[derive(Debug, Clone)]
-pub enum CommandResponse {
-    String(String),
-    EphemeralString(String),
-    Embed(Box<CreateEmbed>),
-    Message(CreateInteractionResponseMessage),
-    None,
-}
-
-impl CommandResponse {
-    pub fn new_string(s: impl Into<String>) -> Self { Self::from(s.into()) }
-
-    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
-
-    pub async fn send(self, command: &CommandInteraction, http: &Http) {
-        let message = CreateInteractionResponseMessage::new();
-        let response_message = match self {
-            CommandResponse::String(s) => message.content(s),
-            CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
-            CommandResponse::Embed(embed) => message.embed(*embed),
-            CommandResponse::Message(message) => message,
-            CommandResponse::None => return,
-        };
-        let response = CreateInteractionResponse::Message(response_message);
-
-        if let Err(e) = command.create_response(http, response).await {
-            event!(
-                Level::ERROR,
-                "Couldn't respond to command ({}): {e}",
-                command.data.name.as_str()
-            );
-        }
-    }
-}
-
-impl From<String> for CommandResponse {
-    fn from(value: String) -> Self { Self::String(value) }
 }
 
 /// Run a command specified by its name.
