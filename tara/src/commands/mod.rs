@@ -81,7 +81,7 @@ pub trait DiscordCommand {
 pub enum CommandResponse {
     String(String),
     EphemeralString(String),
-    Embed(CreateEmbed),
+    Embed(Box<CreateEmbed>),
     Message(CreateInteractionResponseMessage),
     None,
 }
@@ -96,7 +96,7 @@ impl CommandResponse {
         let response_message = match self {
             CommandResponse::String(s) => message.content(s),
             CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
-            CommandResponse::Embed(embed) => message.embed(embed),
+            CommandResponse::Embed(embed) => message.embed(*embed),
             CommandResponse::Message(message) => message,
             CommandResponse::None => return,
         };
