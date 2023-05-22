@@ -337,7 +337,7 @@ impl client::EventHandler for EventHandler {
             .map(|command| command.register())
             .collect::<Vec<_>>();
 
-        Command::set_global_application_commands(&context.http, global_commands)
+        Command::set_global_commands(&context.http, global_commands)
             .await
             .expect("Unable to register commands.");
         info!("Commands registered.");
