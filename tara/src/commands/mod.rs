@@ -19,6 +19,8 @@ use crate::{
 mod conversions;
 mod core;
 mod define;
+#[cfg(feature = "music")]
+mod music;
 mod random;
 mod role;
 mod search;
@@ -45,6 +47,8 @@ lazy_static! {
             cmd!(conversions::COMMAND),
             cmd!(search::COMMAND),
             cmd!(role::COMMAND),
+            #[cfg(feature = "music")]
+            cmd!(music::COMMAND),
         ];
 
         let mut map = HashMap::with_capacity(COMMANDS.len());

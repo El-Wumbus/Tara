@@ -1,4 +1,10 @@
-use serenity::{all::{CommandDataOption, CommandDataOptionValue, GuildId, CommandInteraction}, builder::{CreateEmbed, CreateInteractionResponseMessage, CreateInteractionResponse}, http::Http};
+use serenity::{
+    all::{CommandDataOption, CommandDataOptionValue, CommandInteraction, GuildId},
+    builder::{
+        CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
+    },
+    http::Http,
+};
 use tracing::{event, Level};
 
 use super::Result;
@@ -62,8 +68,11 @@ pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
 #[derive(Debug, Clone)]
 pub enum CommandResponse {
     String(String),
+    EditString(String),
     EphemeralString(String),
     Embed(Box<CreateEmbed>),
+    EditEmbed(Box<CreateEmbed>),
+    EditResponse(Box<EditInteractionResponse>),
     Message(CreateInteractionResponseMessage),
     None,
 }
@@ -81,9 +90,27 @@ impl CommandResponse {
             CommandResponse::Embed(embed) => message.embed(*embed),
             CommandResponse::Message(message) => message,
             CommandResponse::None => return,
+            CommandResponse::EditString(_)
+            | CommandResponse::EditResponse(_)
+            | CommandResponse::EditEmbed(_) => {
+                let edit = match self {
+                    CommandResponse::EditString(s) => EditInteractionResponse::new().content(s),
+                    CommandResponse::EditEmbed(embed) => EditInteractionResponse::new().embed(*embed),
+                    CommandResponse::EditResponse(r) => *r,
+                    _ => unreachable!(),
+                };
+
+                if let Err(e) = command.edit_response(http, edit).await {
+                    event!(
+                        Level::ERROR,
+                        "Couldn't edit response to command ({}): {e}",
+                        command.data.name.as_str()
+                    );
+                }
+                return;
+            }
         };
         let response = CreateInteractionResponse::Message(response_message);
-
         if let Err(e) = command.create_response(http, response).await {
             event!(
                 Level::ERROR,

@@ -1,9 +1,7 @@
-#![feature(const_trait_impl)]
-
+#![feature(const_trait_impl, stmt_expr_attributes)]
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use once_cell::sync::Lazy;
-use rustyline::{history::FileHistory, Editor};
 use serenity::{
     all::{Command, Guild, Interaction, Ready},
     async_trait, client,
@@ -18,20 +16,30 @@ use structopt::{
 use tara::{
     commands, config,
     database::{self, GuildPreferences},
-    error::{Error, Result},
+    error::Error,
     logging, paths,
 };
-use tokio::{fs, task};
+use tokio::task;
 use tracing::{debug, error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 
+mod init;
+
 const NAME: &str = "Tara";
 
+/// Discord gateway intents
+const INTENTS: GatewayIntents = GatewayIntents::GUILD_MESSAGES
+    .union(GatewayIntents::non_privileged())
+    .union(GatewayIntents::DIRECT_MESSAGES)
+    .union(GatewayIntents::MESSAGE_CONTENT)
+    .union(GatewayIntents::GUILDS)
+    .union(GatewayIntents::GUILD_VOICE_STATES);
+
 static COMMAND_LOG_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    paths::project_dir()
-        .unwrap()
-        .data_dir()
-        .join(format!("command-log_{}.csv", chrono::Utc::now()))
+    paths::project_dir().unwrap().data_dir().join(format!(
+        "command-log_{}.csv",
+        chrono::Utc::now().format("%Y-%m-%d_%H:%M")
+    ))
 });
 
 #[derive(StructOpt, Debug, Clone)]
@@ -107,13 +115,14 @@ impl From<LogLevel> for LevelFilter {
     }
 }
 
+
 #[tokio::main]
 async fn main() -> std::result::Result<(), anyhow::Error> {
     match Options::from_args() {
         Options::Daemon { config, log_level } => daemon(config, log_level).await?,
         Options::Config(option) => {
             match option {
-                SubOptionConfig::Init => init().await?,
+                SubOptionConfig::Init => init::init().await?,
             }
         }
     }
@@ -146,12 +155,6 @@ async fn daemon(
     // Get error messsages
     let error_messages = load_error_messages(config.clone());
 
-    // Setup intents
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT
-        | GatewayIntents::GUILDS;
-
     let guilds = match database::Guilds::load().await {
         Err(_) => database::Guilds::create().await?,
         Ok(x) => x,
@@ -159,16 +162,16 @@ async fn daemon(
 
     let logger = logging::CommandLogger::new();
 
-    // Initialize && start client
-    let mut client = Client::builder(config.secrets.token.clone(), intents)
-        .event_handler(EventHandler {
+    let mut client = build_client(
+        config.secrets.token.clone(),
+        EventHandler {
             guilds: guilds.clone(),
             config,
             logger: logger.clone(),
             error_messages: error_messages.await,
-        })
-        .await
-        .map_err(|e| Error::ClientInitialization(Box::new(e)))?;
+        },
+    )
+    .await?;
 
     task::spawn(async move {
         let logger = logger.clone();
@@ -176,125 +179,32 @@ async fn daemon(
             error!("LOGGING ERORR: {e}");
         };
     });
-    if let Err(why) = client.start().await {
-        error!("Error: {:?}", why);
-    }
+
+    let _ = client.start().await.map_err(|why| error!("Error: {:?}", why));
 
     Ok(())
 }
 
-async fn init() -> Result<()> {
-    fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>> {
-        let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();
-        if value.is_empty() {
-            Ok(None)
-        }
-        else {
-            Ok(Some(value))
-        }
-    }
+async fn build_client(token: impl AsRef<str>, event_handler: EventHandler) -> Result<Client, anyhow::Error> {
+    #[cfg(feature = "music")]
+    use {reqwest::Client as HttpClient, songbird::SerenityInit, tara::HttpKey};
 
-    // Collect all configuration values
-    let mut rl = rustyline::DefaultEditor::new().unwrap();
+    // Initialize && start client
+    let client_builder = Client::builder(token, INTENTS).event_handler(event_handler);
 
-    let token = {
-        let mut token = String::new();
-        while token.is_empty() {
-            token = rl
-                .readline("Enter Discord token [Required]: ")
-                .map_err(Error::ReadLine)?
-                .trim()
-                .to_owned();
-        }
-        token
-    };
+    #[cfg(feature = "music")]
+    let client = client_builder
+        .register_songbird()
+        .type_map_insert::<HttpKey>(HttpClient::new())
+        .await
+        .map_err(|e| Error::ClientInitialization(Box::new(e)))?;
 
-    let currency_api_key = get_optional_value(&mut rl, "Enter API key for currencyapi.com [Optional]: ")?;
-    let direct_message_cooldown = get_optional_value(
-        &mut rl,
-        "Enter cooldown, in seconds, for direct message commands [Optional]: ",
-    )?;
-    let direct_message_cooldown = match direct_message_cooldown {
-        Some(x) => {
-            Some(std::time::Duration::from_secs(
-                x.parse::<u64>()
-                    .map_err(|e| Error::ParseNumber(format!("\"{x}\": {e}")))?,
-            ))
-        }
-        None => None,
-    };
+    #[cfg(not(feature = "music"))]
+    let client = client_builder
+        .await
+        .map_err(|e| Error::ClientInitialization(Box::new(e)))?;
 
-    let random_error_message = get_optional_value(
-        &mut rl,
-        "Enter path to randomErrorMessage file (Type \"default\" to use the default path) [Optional]: ",
-    )?;
-    let random_error_message =
-        random_error_message.map_or(config::ConfigurationRandomErrorMessages::Boolean(false), |x| {
-            if x == "default" {
-                config::ConfigurationRandomErrorMessages::Boolean(true)
-            }
-            else {
-                config::ConfigurationRandomErrorMessages::Path(PathBuf::from(x))
-            }
-        });
-
-
-    let config_file_path = get_optional_value(
-        &mut rl,
-        "Enter where to save generated config file (Press Enter to use default) [Optional]: ",
-    )?;
-    let config_file_path = match config_file_path {
-        Some(x) => PathBuf::from(x),
-        None => {
-            if let Some(project_dirs) = paths::project_dir() {
-                project_dirs.config_dir().join("tara.toml")
-            }
-            else {
-                eprintln!("Couldn't get default config file location!");
-                return Err(Error::MissingConfigurationFile);
-            }
-        }
-    };
-
-
-    let config = config::Configuration {
-        secrets:              config::ConfigurationSecrets {
-            token:            token.clone(),
-            currency_api_key: currency_api_key.clone(),
-        },
-        random_error_message: random_error_message.clone(),
-    };
-
-    let config = toml::to_string_pretty(&config).map_err(|e| {
-        Error::ConfigurationSave {
-            error: Box::new(e),
-            path:  config_file_path.clone(),
-        }
-    })?;
-
-    println!(
-        "Selected Configuration:\n\ttoken = '{token}' \n\tcurrencyApiKey = {currency_api_key:?} \
-         \n\tdirectMessageCooldown = {direct_message_cooldown:?} \n\trandomErrorMessage = \
-         {random_error_message:?}"
-    );
-
-    // If we should continue, save, otherwise we exit.
-    let cont = get_optional_value(&mut rl, "Is this okay? [y/N]: ")?.map_or(false, |mut x| {
-        x = x.to_lowercase();
-        x == "y" || x == "yes"
-    });
-    if cont {
-        fs::create_dir_all(&config_file_path.parent().unwrap())
-            .await
-            .map_err(Error::Io)?;
-        fs::write(&config_file_path, config).await.map_err(Error::Io)?;
-        println!("Saved config to \"{}\"", config_file_path.display());
-    }
-    else {
-        println!("Quitting...");
-    }
-
-    Ok(())
+    Ok(client)
 }
 
 struct EventHandler {
