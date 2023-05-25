@@ -8,7 +8,7 @@ use serenity::{
     all::{ChannelId, CommandInteraction, GuildId, UserId},
     client::Cache,
 };
-use tokio::{fs::File, sync::Mutex, time};
+use tokio::{fs::{File, self}, sync::Mutex, time};
 
 use crate::Result;
 
@@ -44,13 +44,17 @@ impl CommandLogger {
     ///
     /// # Errors
     ///
-    ///
-    ///
-    ///
     /// Errors may occurr if:
     /// - writing to the provided file raises an IO error
     /// - serilization raises an error
     pub async fn log_to_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+
+        let parent_path = path.parent().unwrap();
+        if !parent_path.exists() {
+            fs::create_dir_all(parent_path).await?;
+        }
+
         let mut csv_file = AsyncWriterBuilder::new()
             .has_headers(false)
             .create_serializer(File::create(path).await?);
