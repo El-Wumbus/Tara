@@ -5,7 +5,7 @@ use serenity::{
     model::Permissions,
 };
 
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 
 
 mod set;
@@ -83,7 +83,7 @@ impl DiscordCommand for Settings {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+    async fn run(&self, args: CommandArguments) -> crate::Result<CommandResponse> {
         let option = &args.command.data.options[0];
         let guild = args.guild.unwrap();
         match &*option.name {
@@ -129,5 +129,5 @@ impl DiscordCommand for Settings {
         }
     }
 
-    fn name(&self) -> String { String::from("settings") }
+    fn name(&self) -> &'static str { "settings" }
 }

@@ -5,15 +5,14 @@ use serde::{Deserialize, Serialize};
 use serenity::{
     all::CommandOptionType,
     builder::{
-        CreateAttachment, CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseMessage,
+        CreateAttachment, CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponseMessage,
     },
     json::Value,
 };
 use tokio::task;
 use truncrate::TruncateToBoundary;
 
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
 pub const COMMAND: Define = Define;
@@ -43,7 +42,7 @@ impl DiscordCommand for Define {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
         let (word, audio) = {
             // Get the role argument
             let mut word = String::new();
@@ -125,19 +124,16 @@ impl DiscordCommand for Define {
             }
         }
 
-        let response = CreateInteractionResponse::Message(
+        let message = CommandResponse::Message(
             CreateInteractionResponseMessage::new()
                 .add_embed(embed_builder)
                 .add_files(attachments),
         );
-        if let Err(e) = args.command.create_response(&args.context.http, response).await {
-            log::error!("Couldn't respond to command: {e}");
-        }
 
-        Ok(String::new())
+        Ok(message)
     }
 
-    fn name(&self) -> String { String::from("define") }
+    fn name(&self) -> &'static str { "define" }
 }
 
 type Words = Vec<Word>;

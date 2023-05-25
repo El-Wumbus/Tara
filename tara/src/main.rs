@@ -254,10 +254,12 @@ impl client::EventHandler for EventHandler {
         context.set_activity(Some(ActivityData::watching("El-Wumbus/Tara on GitHub")));
 
         log::info!("Registering commands...");
+        // For each command in the map, run `.register()` on it.
         let global_commands = commands::COMMANDS
-            .iter()
+            .values()
             .map(|command| command.register())
             .collect::<Vec<_>>();
+
         Command::set_global_application_commands(&context.http, global_commands)
             .await
             .expect("Unable to register commands.");

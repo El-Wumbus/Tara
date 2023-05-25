@@ -5,20 +5,17 @@ use async_trait::async_trait;
 use rand::Rng;
 use serenity::{
     all::CommandOptionType,
-    builder::{
-        CreateAttachment, CreateCommand, CreateCommandOption, CreateInteractionResponse,
-        CreateInteractionResponseMessage,
-    },
+    builder::{CreateAttachment, CreateCommand, CreateCommandOption, CreateInteractionResponseMessage},
 };
 
 use self::images::Image;
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
 mod images;
 mod quote;
 
-pub static COMMAND: Random = Random;
+pub const COMMAND: Random = Random;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Random;
@@ -60,7 +57,7 @@ impl DiscordCommand for Random {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
         let option = &args.command.data.options[0];
         match &*option.name {
             "coin" => Ok(coin_flip()),
@@ -79,14 +76,9 @@ impl DiscordCommand for Random {
                     .await
                     .map_err(|e| Error::SerenityHttpRequest(Box::new(e)))?;
 
-                let response = CreateInteractionResponse::Message(
+                Ok(CommandResponse::Message(
                     CreateInteractionResponseMessage::new().add_file(attachment),
-                );
-                if let Err(e) = args.command.create_response(&args.context.http, response).await {
-                    log::error!("Couldn't respond to command: {e}");
-                }
-
-                Ok(String::new())
+                ))
             }
             "number" => {
                 let mut low = 0.0;
@@ -111,7 +103,7 @@ impl DiscordCommand for Random {
         }
     }
 
-    fn name(&self) -> String { String::from("random") }
+    fn name(&self) -> &'static str { "random" }
 }
 
 /// Flip a coin
@@ -121,14 +113,14 @@ impl DiscordCommand for Random {
 /// ```Rust
 /// dbg!(coin_flip());
 /// ```
-fn coin_flip() -> String {
+fn coin_flip() -> CommandResponse {
     let mut rng = rand::thread_rng();
 
     if rng.gen_bool(1.0 / 2.0) {
-        String::from("Heads")
+        CommandResponse::new_string("Heads")
     }
     else {
-        String::from("Tails")
+        CommandResponse::new_string("Tails")
     }
 }
 
@@ -144,13 +136,15 @@ fn coin_flip() -> String {
 /// dbg!(random_number(low, high, false));
 /// ```
 #[allow(clippy::cast_possible_truncation)]
-fn random_number(low: f64, high: f64, integer: bool) -> String {
+fn random_number(low: f64, high: f64, integer: bool) -> CommandResponse {
     let mut rng = rand::thread_rng();
 
-    if integer {
+    let x = if integer {
         rng.gen_range(low as i64..=high as i64).to_string()
     }
     else {
         rng.gen_range(low..=high).to_string()
-    }
+    };
+
+    CommandResponse::String(x)
 }

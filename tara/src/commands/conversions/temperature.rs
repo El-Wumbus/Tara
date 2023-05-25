@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use crate::Error;
+use crate::{commands::CommandResponse, Error};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Temperature {
@@ -124,7 +124,7 @@ impl Temperature {
     }
 }
 
-pub fn convert(input: &str, output: &str) -> crate::Result<String> {
+pub fn convert(input: &str, output: &str) -> crate::Result<CommandResponse> {
     let mut temperature = Temperature::from_str(input)?;
     Ok(match output {
         "k" | "kel" | "kelvin" => temperature.as_kel(),
@@ -132,5 +132,6 @@ pub fn convert(input: &str, output: &str) -> crate::Result<String> {
         "f" | "fah" | "fahrenheit" => temperature.as_fah(),
         _ => &mut temperature,
     }
-    .to_string())
+    .to_string()
+    .into())
 }

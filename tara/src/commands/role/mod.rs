@@ -4,7 +4,7 @@ use serenity::{
     builder::{CreateCommand, CreateCommandOption},
 };
 
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
 pub const COMMAND: Role = Role;
@@ -43,7 +43,7 @@ impl DiscordCommand for Role {
     }
 
     /// Run the discord command
-    async fn run(&self, args: CommandArguments) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
         let option = &args.command.data.options[0];
         let guild = args.guild.ok_or_else(|| Error::InternalLogic)?;
         let prefs = args
@@ -64,7 +64,7 @@ impl DiscordCommand for Role {
                     .collect::<Vec<&str>>()
                     .join(", ");
 
-                return Ok(format!("Self-assignable roles:\n> {roles}"));
+                return Ok(format!("Self-assignable roles:\n> {roles}").into());
             }
 
             "add" => {
@@ -85,7 +85,7 @@ impl DiscordCommand for Role {
                     .await
                     .map_err(|e| Error::UserRole(Box::new(e)))?;
 
-                return Ok(format!("Added {}", role.name));
+                return Ok(format!("Added {}", role.name).into());
             }
 
             "remove" => {
@@ -107,7 +107,7 @@ impl DiscordCommand for Role {
                     .await
                     .map_err(|e| Error::UserRole(Box::new(e)))?;
 
-                return Ok(format!("Removed {}", role.name));
+                return Ok(format!("Removed {}", role.name).into());
             }
 
             _ => return Err(Error::InternalLogic),
@@ -115,5 +115,5 @@ impl DiscordCommand for Role {
     }
 
     /// The name of the command
-    fn name(&self) -> String { String::from("role") }
+    fn name(&self) -> &'static str { "role" }
 }

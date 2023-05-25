@@ -5,13 +5,13 @@ use serenity::{
 };
 use tokio::sync::Mutex;
 
-use super::{CommandArguments, DiscordCommand};
+use super::{CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
 mod currency;
 mod temperature;
 
-pub static COMMAND: Conversions = Conversions;
+pub const COMMAND: Conversions = Conversions;
 
 lazy_static::lazy_static! {
     pub static ref CURRENCY_CONVERTER: Mutex<Option<currency::Converter>> = Mutex::new(None);
@@ -74,7 +74,7 @@ impl DiscordCommand for Conversions {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
         use super::core::suboptions;
         let option = &args.command.data.options[0];
         match &*option.name {
@@ -122,11 +122,11 @@ impl DiscordCommand for Conversions {
                 // Update the currency converter
                 *CURRENCY_CONVERTER.lock().await = Some(c);
 
-                Ok(r)
+                Ok(r.into())
             }
             _ => Err(Error::InternalLogic),
         }
     }
 
-    fn name(&self) -> std::string::String { String::from("conversions") }
+    fn name(&self) -> &'static str { "conversions" }
 }

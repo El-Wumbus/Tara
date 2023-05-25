@@ -16,8 +16,9 @@ use crate::{
 pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
     let mut val = None;
     match &option.value {
-        CommandDataOptionValue::SubCommand(options)
-        | CommandDataOptionValue::SubCommandGroup(options) => val = Some(options),
+        CommandDataOptionValue::SubCommand(options) | CommandDataOptionValue::SubCommandGroup(options) => {
+            val = Some(options)
+        }
         _ => (),
     }
     val.unwrap()

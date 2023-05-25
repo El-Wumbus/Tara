@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result};
+use crate::{commands::CommandResponse, Error, Result};
 
-pub async fn random() -> Result<String> { Ok(Quote::random().await?.to_string()) }
+pub async fn random() -> Result<CommandResponse> { Ok(Quote::random().await?.to_string().into()) }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Quote {
