@@ -18,10 +18,6 @@ pub const COMMAND: Wiki = Wiki;
 #[derive(Clone, Copy, Debug)]
 pub struct Wiki;
 
-impl Wiki {
-    pub const DEFAULT_MAX_WIKI_LEN: u32 = 800;
-}
-
 #[async_trait]
 impl DiscordCommand for Wiki {
     fn register(&self) -> CreateCommand {
