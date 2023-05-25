@@ -1,55 +1,93 @@
-# TARA
+<div align="center">
 
-A free, open-source, community-driven, speedy, stable, self-hosted, Discord bot.
+# Tara
 
-# Dependencies
+[![crates.io][crates.io-badge]][crates.io]
 
-- Sqlite3
+Tara is a new, free, open-source self-hostable, Discord bot.
 
-## Build Dependencies
+[INSERT STRENGTHS HERE]<br />
+Tara works on Linux (with macOS and Windows support coming soon).
 
-- [Cargo (Rust)](https://www.rust-lang.org/tools/install)
+[Installation](#installation) • [Using](#using)
 
-## Debian, Ubuntu, etc.
-
-```bash
-sudo apt install libsqlite3-dev -y
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-```
-After installing rustup (line 2), run `rustup default nightly`.
-Then, compile and install Tara.
-
-## Arch, Manjaro, etc.
-
-```bash
-sudo pacman -S sqlite
-```
+</div>
 
 # Installation
 
-Currently, Tara only supports Linux (Though this will change).
+Tara can be installed in 2 simple steps:
 
-## With Cargo install
+1. **Install executable**
 
-If using this method, the provided systemd service file `extra/tara.service` will have to be modified.
+If your desired platform isn't seen below, please [open an issue][issues].
 
-```bash
-cargo install tara
+<details>
+<summary>Linux</summary>
+
+> The recommended way to install Tara is by way of a package manager.
+> If using `cargo install`, some dependencies won't automatically be installed. You'll need to install `sqlite3` previous to running the instructions.
+> On Debian and Ubuntu systems the required package is `libsqlite3-dev`, on Arch and related systems it's `sqlite`.
+>
+> | Distribution | Repository      | Instructions                  |
+> | ------------ | --------------- | ----------------------------- |
+> | *Any*        | **[crates.io]** | `cargo install tara --locked` |
+
+</details>
+
+2. **Configure**
+
+Before the bot can be started successfully, it needs to be configured.
+
+<details>
+<summary>Linux</summary>
+
+> The configuration file is located at `/etc/tara.d/tara.toml`. 
+
+</details>
+
+The configuration file should look similarly to below:
+
+```toml
+direct_message_cooldown = 5 # Optional
+
+[secrets]
+# Discord bot token
+token = "<DISCORD_TOKEN>"
+
+# API key from currencyapi.com.
+currencyApiKey = "<CURRENCYAPI.COM>" # Optional
 ```
 
-## Manually
+Present in all the configuration files are the following keys:
 
-```bash
-git clone https://github.com/El-Wumbus/Tara
-cd Tara
-cargo build --release
-sudo install -Dvm755 target/release/tara /usr/local/bin/tara
-sudo install -Dvm754 extra/tara.service /etc/systemd/system/tara.service
-```
+- *`direct_message_cooldown`* - This optional key is to set the minimum duration, in seconds, to allow between running commands in a direct message. The default is `3`.
 
-To enable and start the service.
+- *`secrets.token`* - The discord token can be aquired according to *[Building your first Discord app][discord-getting-started]*.
 
-```bash
-sudo systemctl enable --now tara
-```
+- *`secrets.currencyApiKey`* - The `currencyApiKey` is an optional key to enable the currency conversion feature. This can be aquired from [currencyapi.com][currencyapi]. The feature will, at most, refresh every six hours. This means the feature will never need a paid API key.
+
+# Using
+
+## Commands
+
+| Name                      | Description                                                                              | Usable in  DMs | Permissions  |
+| ------------------------- | ---------------------------------------------------------------------------------------- | -------------- | ------------ |
+| `define`                  | Defines an English word                                                                  | Yes            | *NONE*       |
+| `wiki`                    | Searches for a wikipedia page and returns a summary                                      | Yes            | *NONE*       |
+| `random coin`             | Flips a coin                                                                             | Yes            | *NONE*       |
+| `random cat`              | Gives a random cat photo                                                                 | Yes            | *NONE*       |
+| `random dog`              | Gives a random dog photo                                                                 | Yes            | *NONE*       |
+| `random quote`            | Gives a random quote                                                                     | Yes            | *NONE*       |
+| `random number`           | Generates a random number between optional low and high bounds (inclusive)               | Yes            | *NONE*       |
+| `search duckduckgo`       | Search *[DuckDuckGo][duckduckgo]* for a search term. Results are censored.               | Yes            | *NONE*       |
+| `conversions temperature` | Convert one temperature unit to another. Supports celsius, kelvin, and fahrenheit        | Yes            | *NONE*       |
+| `conversions currency`    | Convert from one currency to another. Only enabled when `secrets.currencyApiKey` is set. | Yes            | *NONE*       |
+| `settings set *`          | Set settings for the current guild                                                       | No             | MANAGE_GUILD |
+| `settings view *`         | See current guild settings                                                               | No             | MANAGE_GUILD |
+
+[crates.io]: https://crates.io/crates/tara
+[crates.io-badge]: https://img.shields.io/crates/v/tara?logo=Rust&style=flat-square
+[issues]: https://github.com/El-Wumbus/Tara/issues/new
+[discord-getting-started]: https://discord.com/developers/docs/getting-started
+[currencyapi]: https://currencyapi.com/
+[duckduckgo]: https://duckduckgo.com/html
