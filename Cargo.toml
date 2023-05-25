@@ -1,6 +1,6 @@
 [package]
 name = "tara"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "A free, open-source, community-driven, speedy, stable, self-hosted, Discord bot."
@@ -10,7 +10,7 @@ authors = ["Decator <decator.c@proton.me>"]
 
 [profile.release]
 strip = "symbols"
-lto = true
+lto = "thin"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
