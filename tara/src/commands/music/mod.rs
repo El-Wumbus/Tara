@@ -60,11 +60,7 @@ impl DiscordCommand for Music {
             )
             .required(true),
         );
-        let stop = CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "stop",
-            "Stop playback",
-        );
+        let stop = CreateCommandOption::new(CommandOptionType::SubCommand, "stop", "Stop playback");
         let pause = CreateCommandOption::new(
             CommandOptionType::SubCommand,
             "pause",
@@ -300,6 +296,7 @@ impl VoiceEventHandler for TrackErrorNotifier {
     }
 }
 
+/// Deletes the message related to the track that just ended
 struct TrackEndNotifier {
     channel_id: ChannelId,
     http:       Arc<Http>,
@@ -311,15 +308,12 @@ impl VoiceEventHandler for TrackEndNotifier {
         if let EventContext::Track(track_list) = context {
             for (_state, handle) in *track_list {
                 let uuid = handle.uuid();
-                let mut currently_playing = CURRENTLY_PLAYING.lock().await;
-                if let Some((track, _)) = currently_playing.remove(&uuid) {
-                    if let Some(message_id) = GUILD_CHANNEL_MAP.lock().await.remove(&uuid) {
-                        let embed = CreateEmbed::from(track).description("Playback Status: **Finished**");
-                        let _ = EditMessage::new()
-                            .add_embed(embed)
-                            .execute(&self.http, (self.channel_id, message_id))
+                if let Some(message_id) = GUILD_CHANNEL_MAP.lock().await.remove(&uuid) {
+                    if let Ok(message) = self.channel_id.message(&self.http, message_id).await {
+                        let _ = message
+                            .delete(&self.http)
                             .await
-                            .map_err(|e| error!("Error sending message to channel {}: {e}", self.channel_id));
+                            .map_err(|e| error!("Error deleting message: {e}"));
                     }
                 }
             }
@@ -343,7 +337,7 @@ impl VoiceEventHandler for TrackPauseNotifier {
                 let currently_playing = CURRENTLY_PLAYING.lock().await;
                 if let Some((track, _)) = currently_playing.get(&uuid).cloned() {
                     if let Some(message_id) = GUILD_CHANNEL_MAP.lock().await.get(&uuid).cloned() {
-                        let embed = CreateEmbed::from(track).description("Playback Status: **Paused**");
+                        let embed = CreateEmbed::from(track).field("Status", "Paused", false);
                         let _ = EditMessage::new()
                             .add_embed(embed)
                             .execute(&self.http, (self.channel_id, message_id))
@@ -372,7 +366,7 @@ impl VoiceEventHandler for TrackPlayNotifier {
                 let currently_playing = CURRENTLY_PLAYING.lock().await;
                 if let Some((track, _)) = currently_playing.get(&uuid).cloned() {
                     if let Some(message_id) = GUILD_CHANNEL_MAP.lock().await.get(&uuid).cloned() {
-                        let embed = CreateEmbed::from(track).description("Playback Status: **Playing**");
+                        let embed = CreateEmbed::from(track).field("Status", "Playing", false);
                         let _ = EditMessage::new()
                             .add_embed(embed)
                             .execute(&self.http, (self.channel_id, message_id))
