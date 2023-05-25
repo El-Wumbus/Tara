@@ -26,13 +26,11 @@ lazy_static::lazy_static! {
 pub struct Conversions;
 
 #[async_trait]
-impl DiscordCommand for Conversions
-{
+impl DiscordCommand for Conversions {
     fn register<'a>(
         &'a self,
         command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand
-    {
+    ) -> &mut serenity::builder::CreateApplicationCommand {
         command
             .name(self.name())
             .description("Convert one unit to another")
@@ -88,8 +86,7 @@ impl DiscordCommand for Conversions
         command: &ApplicationCommandInteraction,
         config: Arc<crate::config::Configuration>,
         _databases: Arc<crate::database::Databases>,
-    ) -> Result<String>
-    {
+    ) -> Result<String> {
         let option = &command.data.options[0];
         match &*option.name {
             "temperature" => {

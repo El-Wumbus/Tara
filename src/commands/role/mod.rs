@@ -19,11 +19,9 @@ pub const COMMAND: RoleCMD = RoleCMD;
 pub struct RoleCMD;
 
 #[async_trait]
-impl DiscordCommand for RoleCMD
-{
+impl DiscordCommand for RoleCMD {
     /// Register the discord command.
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand
-    {
+    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
         command
             .name(self.name())
             .description("Self-manage your roles")
@@ -69,8 +67,7 @@ impl DiscordCommand for RoleCMD
         command: &ApplicationCommandInteraction,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
-    ) -> Result<String>
-    {
+    ) -> Result<String> {
         let option = &command.data.options[0];
         // We can unwrap because this command cannot run in DMs
         let guild_id = command.guild_id.unwrap();
@@ -130,8 +127,7 @@ impl DiscordCommand for RoleCMD
             _ => return Err(Error::InternalLogic),
         }
 
-        fn get_role(option: &Option<CommandDataOptionValue>) -> Role
-        {
+        fn get_role(option: &Option<CommandDataOptionValue>) -> Role {
             // Get the role argument
             let mut role = None;
             if let Some(CommandDataOptionValue::Role(input)) = option {

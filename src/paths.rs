@@ -3,24 +3,21 @@ use std::path;
 use crate::{Error, Result};
 
 #[cfg(target_os = "linux")]
-mod defaults
-{
+mod defaults {
     pub const FALLBACK_DATABASE_DIRECTORY: &str = "/var/db/tara/";
     pub const FALLBACK_CONFIG_FILE: &str = "/etc/tara.d/tara.toml";
     pub const FALLBACK_ERROR_MESSAGES_FILE: &str = "/etc/tara.d/error_messages.json";
 }
 
 #[cfg(not(target_os = "linux"))]
-mod defaults
-{
+mod defaults {
     pub const FALLBACK_CONFIG_FILE: &str = "";
     pub const FALLBACK_DATABASE_DIRECTORY: &str = "";
     pub const FALLBACK_ERROR_MESSAGES_FILE: &str = "";
 }
 
 #[inline]
-fn project_dir() -> Option<directories::ProjectDirs>
-{
+pub fn project_dir() -> Option<directories::ProjectDirs> {
     directories::ProjectDirs::from("com.github", "El-Wumbus", "Tara")
 }
 
@@ -48,8 +45,7 @@ fn project_dir() -> Option<directories::ProjectDirs>
 /// Returns an `Error` when:
 ///
 /// - No configuration file is found
-pub fn config_file_path() -> Result<path::PathBuf>
-{
+pub fn config_file_path() -> Result<path::PathBuf> {
     let mut paths = Vec::with_capacity(2);
     if let Some(project_dirs) = project_dir() {
         paths.push(project_dirs.config_dir().join("tara.toml"));
@@ -88,8 +84,7 @@ pub fn config_file_path() -> Result<path::PathBuf>
 /// Returns an `Error` when:
 ///
 /// - No configuration file is found
-pub fn database_directory() -> Result<path::PathBuf>
-{
+pub fn database_directory() -> Result<path::PathBuf> {
     let mut paths = Vec::with_capacity(2);
     if let Some(project_dirs) = project_dir() {
         paths.push(path::PathBuf::from(project_dirs.data_dir()));
@@ -112,8 +107,8 @@ pub fn database_directory() -> Result<path::PathBuf>
 ///
 /// ## Linux
 ///
-/// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or `$HOME/.config/Tara/error_messages.json`
-/// 2. `/etc/tara.d/error_messages.json`
+/// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or
+/// `$HOME/.config/Tara/error_messages.json` 2. `/etc/tara.d/error_messages.json`
 ///
 /// ## MacOS
 ///
@@ -122,9 +117,7 @@ pub fn database_directory() -> Result<path::PathBuf>
 /// ## Windows
 ///
 /// 1. `%APPDATA%\Tara\config\error_messages.json`
-///
-pub fn error_messages_file_path() -> Option<path::PathBuf>
-{
+pub fn error_messages_file_path() -> Option<path::PathBuf> {
     let mut paths = Vec::with_capacity(2);
     if let Some(project_dirs) = project_dir() {
         paths.push(project_dirs.config_dir().join("error_messages.json"));

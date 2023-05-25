@@ -5,11 +5,8 @@ use rusqlite::params;
 use serenity::model::prelude::{GuildId, RoleId};
 use tokio::fs;
 
-use crate::config;
-
 #[derive(Debug)]
-pub struct Databases
-{
+pub struct Databases {
     /// A connection to the `guilds` table.
     ///
     /// ```sql
@@ -20,17 +17,15 @@ pub struct Databases
     pub guilds: r2d2::Pool<SqliteConnectionManager>,
 }
 
-impl Databases
-{
+impl Databases {
     /// Create connections for databases
     ///
     /// # Errors
     ///
     /// Fails if call to `Self::data_open` fails.
-    pub async fn open(config: Arc<config::Configuration>) -> crate::Result<Arc<Self>>
-    {
+    pub async fn open() -> crate::Result<Arc<Self>> {
         Ok(Arc::new(Self {
-            guilds: Self::data_open(config).await?,
+            guilds: Self::data_open().await?,
         }))
     }
 
@@ -45,8 +40,7 @@ impl Databases
     /// # Panics
     ///
     /// This function panics if the database is broken.
-    pub fn contains(&self, table: &str, id: GuildId) -> crate::Result<bool>
-    {
+    pub fn contains(&self, table: &str, id: GuildId) -> crate::Result<bool> {
         let connection = self.guilds.get().map_err(crate::Error::DatabaseAccessTimeout)?;
 
         // This SQL returns `1` if it exists, and `0` if it doesn't
@@ -69,8 +63,7 @@ impl Databases
     }
 
     /// Creates a row using the provided `GuildID` using default values.
-    pub fn guilds_insert_default(&self, guild_id: GuildId) -> crate::Result<()>
-    {
+    pub fn guilds_insert_default(&self, guild_id: GuildId) -> crate::Result<()> {
         self.guilds
             .get()
             .map_err(crate::Error::DatabaseAccessTimeout)?
@@ -124,11 +117,8 @@ impl Databases
     ///
     /// - An IO error occurs when trying to create the database.
     /// - A database error occurs when creating the database.
-    async fn data_open(
-        config: Arc<config::Configuration>,
-    ) -> crate::Result<r2d2::Pool<SqliteConnectionManager>>
-    {
-        let database_path = guild_database_path(&config)?;
+    async fn data_open() -> crate::Result<r2d2::Pool<SqliteConnectionManager>> {
+        let database_path = guild_database_path()?;
         fs::create_dir_all(database_path.parent().unwrap())
             .await
             .map_err(crate::Error::Io)?;
@@ -166,11 +156,6 @@ impl Databases
 
 /// Get the guild database path
 #[inline]
-fn guild_database_path(config: &config::Configuration) -> crate::Result<path::PathBuf>
-{
-    Ok(config
-        .databases_path
-        .clone()
-        .unwrap_or(crate::paths::database_directory()?)
-        .join("guildSettings.sqlite"))
+fn guild_database_path() -> crate::Result<path::PathBuf> {
+    Ok(crate::paths::database_directory()?.join("guildSettings.sqlite"))
 }

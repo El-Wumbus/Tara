@@ -7,8 +7,7 @@ use crate::{Error, Result};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RPage
-{
+pub struct RPage {
     pub pageid:  i64,
     pub ns:      i64,
     pub title:   String,
@@ -17,23 +16,20 @@ pub struct RPage
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Query
-{
+pub struct Query {
     pub pages: Vec<RPage>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SummaryResponse
-{
+pub struct SummaryResponse {
     pub batchcomplete: bool,
     pub query:         Query,
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Debug)]
 /// The result of a search operation.
-pub struct Page
-{
+pub struct Page {
     /// Title of the page
     pub title: Arc<str>,
 
@@ -41,11 +37,9 @@ pub struct Page
     pub url: Arc<str>,
 }
 
-impl Page
-{
+impl Page {
     /// Create a new `Page`
-    pub fn new(title: String, url: String) -> Self
-    {
+    pub fn new(title: String, url: String) -> Self {
         Self {
             title: Arc::from(title),
             url:   Arc::from(url),
@@ -53,8 +47,7 @@ impl Page
     }
 
     /// Search for a page on Wikipedia and return a `Page`
-    pub async fn search(search_term: &str) -> Result<Self>
-    {
+    pub async fn search(search_term: &str) -> Result<Self> {
         type SearchResult = (String, Vec<String>, Vec<String>, Vec<String>);
 
         // Replace spaces with %20 for the url
@@ -97,8 +90,7 @@ impl Page
         Ok(page)
     }
 
-    pub async fn get_summary(self) -> Result<String>
-    {
+    pub async fn get_summary(self) -> Result<String> {
         let request_url =
         format!(
             "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&titles={}&formatversion=2&exchars=1000&explaintext=1&redirects=1",
@@ -129,13 +121,11 @@ impl Page
 
 #[cfg(test)]
 
-pub mod tests
-{
+pub mod tests {
     use super::Page;
 
     #[tokio::test]
-    async fn test_search_page()
-    {
+    async fn test_search_page() {
         let expected_page = Page::new(
             "Albert Einstein".to_string(),
             "https://en.wikipedia.org/wiki/Albert_Einstein".to_string(),
@@ -145,8 +135,7 @@ pub mod tests
     }
 
     #[tokio::test]
-    async fn test_search_page_misspelled()
-    {
+    async fn test_search_page_misspelled() {
         let expected_page = Page::new(
             "Programming language".to_string(),
             "https://en.wikipedia.org/wiki/Programming_language".to_string(),
@@ -156,8 +145,7 @@ pub mod tests
     }
 
     #[tokio::test]
-    async fn test_get_page_summary()
-    {
+    async fn test_get_page_summary() {
         let page = Page::search("Albert Einstein").await.unwrap();
         let r = page.get_summary().await;
         assert!(r.is_ok());
