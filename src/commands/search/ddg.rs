@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use lazy_static::lazy_static;
 use rustrict::Type;
 use scraper::{Html, Selector};
 
@@ -33,6 +34,15 @@ impl std::fmt::Display for SearchResult {
     }
 }
 
+// Use lazy statics so we only pay for this initialization once. Also, rustrict doesn't
+// implement constant bitwise or, so we can't compute that at compile time.
+lazy_static! {
+    pub static ref SEXUAL_OR_PROFANE: rustrict::Type = Type::SEXUAL | Type::PROFANE;
+    pub static ref RESULT_SELECTOR: Selector = Selector::parse(".web-result").unwrap();
+    pub static ref RESULT_TITLE_SELECTOR: Selector = Selector::parse(".result__a").unwrap();
+    pub static ref RESULT_SNIPPET_SELECTOR: Selector = Selector::parse(".result__snippet").unwrap();
+}
+
 pub async fn scrape(search_term: &str, result_count: usize) -> Result<(Vec<SearchResult>, String)> {
     use rustrict::Censor;
 
@@ -50,36 +60,34 @@ pub async fn scrape(search_term: &str, result_count: usize) -> Result<(Vec<Searc
     let client = reqwest::Client::new();
     let resp = client.get(&url).send().await.map_err(Error::HttpRequest)?;
     let document = Html::parse_document(&resp.text().await.map_err(Error::HttpRequest)?);
-    let result_selector = Selector::parse(".web-result").unwrap();
-    let result_title_selector = Selector::parse(".result__a").unwrap();
-    let result_snippet_selector = Selector::parse(".result__snippet").unwrap();
+
 
     // We make a hashset of the results' titles. This is done to more efficiantly
     // ensure unique titles
     let mut results_hash = HashSet::new();
 
     let results = document
-        .select(&result_selector)
+        .select(&RESULT_SELECTOR)
         .filter_map(|result| {
             // Get the title
-            let result_title = result.select(&result_title_selector).next().unwrap();
+            let result_title = result.select(&RESULT_TITLE_SELECTOR).next().unwrap();
             let title = Censor::from_str(&result_title.text().collect::<String>())
                 .with_censor_replacement('#')
                 .censor_and_analyze();
 
             // If we've seen this title before, or the title is sexual or profane, we skip
             // this result.
-            if results_hash.contains(&title.0) || title.1.is(Type::SEXUAL | Type::PROFANE) {
+            if results_hash.contains(&title.0) || title.1.is(*SEXUAL_OR_PROFANE) {
                 return None;
             }
 
-            let result_snippet = result.select(&result_snippet_selector).next().unwrap();
+            let result_snippet = result.select(&RESULT_SNIPPET_SELECTOR).next().unwrap();
             let snippet = Censor::from_str(&result_snippet.text().collect::<String>())
                 .with_censor_replacement('#')
                 .censor_and_analyze();
 
             // If the snippet is sexual or profane, we skip this result
-            if snippet.1.is(Type::SEXUAL | Type::PROFANE) {
+            if snippet.1.is(*SEXUAL_OR_PROFANE) {
                 return None;
             }
 
