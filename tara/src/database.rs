@@ -7,8 +7,8 @@
 //! [self] uses a single ron file that contains a Vec of [`GuildPreferences`] that
 //! gets read into memory as a [`HashMap<GuildId, GuildPreferences>`]. This gets stored in
 //! a single [`Guilds`], which is a [`Arc<RwLock<HashMap<GuildId, GuildPreferences>>>`].
-//! [Guilds::get]ing a value clones it. [Guilds::save]ing clones everything before writing
-//! it out.
+//! [`Guilds::get`]ing a value clones it. [`Guilds::save`]ing clones everything before
+//! writing it out.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -116,8 +116,9 @@ impl Guilds {
     pub async fn contains(&self, id: GuildId) -> bool { self.0.read().await.contains_key(&id) }
 
     pub async fn get(&self, id: GuildId) -> Option<GuildPreferences> {
-        self.0.read().await.get(&id).map(|x| x.to_owned()) // TODO: don't clone, it
-                                                           // sucks!!!
+        self.0.read().await.get(&id).map(std::clone::Clone::clone) // TODO: don't clone,
+                                                                   // it
+                                                                   // sucks!!!
     }
 
     async fn read() -> Result<HashMap<GuildId, GuildPreferences>> {
@@ -184,11 +185,12 @@ pub struct GuildPreferences {
 }
 
 impl GuildPreferences {
+    #[must_use]
     pub fn default(id: GuildId) -> Self {
         Self {
             id,
             content_character_limit: defaults::content_character_limit_default(),
-            assignable_roles: Default::default(),
+            assignable_roles: HashSet::default(),
         }
     }
 
@@ -200,17 +202,22 @@ impl GuildPreferences {
             self.assignable_roles
                 .iter()
                 .filter_map(|role_id| guild_roles.get(&role_id.id()))
-                .map(|x| x.to_owned())
+                .map(std::clone::Clone::clone)
                 .collect::<Vec<_>>(),
         )
     }
 
+    #[must_use]
     pub fn _all_assignable_roles(&self) -> Vec<&SelfAssignableRole> {
         self.assignable_roles.iter().collect::<Vec<_>>()
     }
 
+    #[must_use]
     pub fn _all_assignable_discord_role_ids(&self) -> Vec<RoleId> {
-        self.assignable_roles.iter().map(|x| x.id()).collect::<Vec<_>>()
+        self.assignable_roles
+            .iter()
+            .map(SelfAssignableRole::id)
+            .collect::<Vec<_>>()
     }
 
     pub fn get_assignable_roles_mut(&mut self) -> &mut HashSet<SelfAssignableRole> {
@@ -223,7 +230,9 @@ impl GuildPreferences {
 pub struct SelfAssignableRole(RoleId);
 
 impl SelfAssignableRole {
+    #[must_use]
     pub fn new(id: RoleId) -> Self { Self(id) }
 
+    #[must_use]
     pub const fn id(&self) -> RoleId { self.0 }
 }

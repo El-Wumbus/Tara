@@ -9,13 +9,15 @@ use serenity::{
     prelude::*,
     Client,
 };
-use structopt::{clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands}, StructOpt};
+use structopt::{
+    clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands},
+    StructOpt,
+};
 use tara::{
+    commands, config,
     database::{self, GuildPreferences},
-    paths,
-    config,
-    commands,
     error::{Error, Result},
+    paths,
 };
 use tokio::fs;
 
@@ -84,8 +86,7 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
         | GatewayIntents::GUILDS;
 
     let guilds = match database::Guilds::load().await {
-        Err(_) => {
-            database::Guilds::create().await?        }
+        Err(_) => database::Guilds::create().await?,
         Ok(x) => x,
     };
 
@@ -107,8 +108,6 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
 }
 
 async fn init() -> Result<()> {
-    use rustyline::DefaultEditor;
-
     fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>> {
         let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();
         if value.is_empty() {
@@ -120,7 +119,7 @@ async fn init() -> Result<()> {
     }
 
     // Collect all configuration values
-    let mut rl = DefaultEditor::new().unwrap();
+    let mut rl = rustyline::DefaultEditor::new().unwrap();
 
     let token = {
         let mut token = String::new();
@@ -135,52 +134,52 @@ async fn init() -> Result<()> {
     };
 
     let currency_api_key = get_optional_value(&mut rl, "Enter API key for currencyapi.com [Optional]: ")?;
-    let direct_message_cooldown = {
-        let direct_message_cooldown = get_optional_value(
-            &mut rl,
-            "Enter cooldown, in seconds, for direct message commands [Optional]: ",
-        )?;
-        match direct_message_cooldown {
-            Some(x) => {
-                Some(std::time::Duration::from_secs(
-                    x.parse::<u64>()
-                        .map_err(|e| Error::ParseNumber(format!("\"{x}\": {e}")))?,
-                ))
-            }
-            None => None,
+    let direct_message_cooldown = get_optional_value(
+        &mut rl,
+        "Enter cooldown, in seconds, for direct message commands [Optional]: ",
+    )?;
+    let direct_message_cooldown = match direct_message_cooldown {
+        Some(x) => {
+            Some(std::time::Duration::from_secs(
+                x.parse::<u64>()
+                    .map_err(|e| Error::ParseNumber(format!("\"{x}\": {e}")))?,
+            ))
         }
-    };
-    let random_error_message = {
-        let random_error_message = get_optional_value(
-            &mut rl,
-            "Enter path to randomErrorMessage file (Type \"default\" to use the default path) [Optional]: ",
-        )?;
-        random_error_message.map_or(config::ConfigurationRandomErrorMessages::Boolean(false), |x| {
-            match &*x {
-                "default" => config::ConfigurationRandomErrorMessages::Boolean(true),
-                _ => config::ConfigurationRandomErrorMessages::Path(PathBuf::from(x)),
-            }
-        })
+        None => None,
     };
 
-    let config_file_path = {
-        let config_file_path = get_optional_value(
-            &mut rl,
-            "Enter where to save generated config file (Press Enter to use default) [Optional]: ",
-        )?;
-        match config_file_path {
-            Some(x) => PathBuf::from(x),
-            None => {
-                if let Some(project_dirs) = paths::project_dir() {
-                    project_dirs.config_dir().join("tara.toml")
-                }
-                else {
-                    eprintln!("Couldn't get default config file location!");
-                    return Err(Error::MissingConfigurationFile);
-                }
+    let random_error_message = get_optional_value(
+        &mut rl,
+        "Enter path to randomErrorMessage file (Type \"default\" to use the default path) [Optional]: ",
+    )?;
+    let random_error_message =
+        random_error_message.map_or(config::ConfigurationRandomErrorMessages::Boolean(false), |x| {
+            if x == "default" {
+                config::ConfigurationRandomErrorMessages::Boolean(true)
+            }
+            else {
+                config::ConfigurationRandomErrorMessages::Path(PathBuf::from(x))
+            }
+        });
+
+
+    let config_file_path = get_optional_value(
+        &mut rl,
+        "Enter where to save generated config file (Press Enter to use default) [Optional]: ",
+    )?;
+    let config_file_path = match config_file_path {
+        Some(x) => PathBuf::from(x),
+        None => {
+            if let Some(project_dirs) = paths::project_dir() {
+                project_dirs.config_dir().join("tara.toml")
+            }
+            else {
+                eprintln!("Couldn't get default config file location!");
+                return Err(Error::MissingConfigurationFile);
             }
         }
     };
+
 
     let config = config::Configuration {
         secrets:              config::ConfigurationSecrets {
@@ -218,7 +217,6 @@ async fn init() -> Result<()> {
     else {
         println!("Quitting...");
     }
-
 
     Ok(())
 }
