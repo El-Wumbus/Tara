@@ -5,14 +5,17 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Error: {0}")]
+    Unexpected(&'static str),
+
     #[error("ClientInitializationError: {0}")]
-    ClientInitialization(serenity::Error),
+    ClientInitialization(Box<serenity::Error>),
 
     #[error("IOError: {0}")]
-    Io(tokio::io::Error),
+    Io(io::Error),
 
     #[error("InternalError/JoinError: {0}")]
-    JoinError(task::JoinError),
+    JoinError(Box<task::JoinError>),
 
     /// There's no configuration file to parse.
     #[error("MissingConfigurationFile: No configuration file found.")]
@@ -22,13 +25,13 @@ pub enum Error {
     #[error("ConfigurationParseError: \"{}\": {error}", path.display())]
     ConfigurationParse {
         path:  std::path::PathBuf,
-        error: toml::de::Error,
+        error: Box<toml::de::Error>,
     },
 
     #[error("ConfigurationSaveError: \"{}\": {error}", path.display())]
     ConfigurationSave {
         path:  std::path::PathBuf,
-        error: toml::ser::Error,
+        error: Box<toml::ser::Error>,
     },
 
     #[error("MessageParseError: \"{}\": {error}", path.display())]
@@ -44,7 +47,7 @@ pub enum Error {
     HttpRequest(reqwest::Error),
 
     #[error("HTTPRequestError: {0}")]
-    SerenityHttpRequest(serenity::Error),
+    SerenityHttpRequest(Box<serenity::Error>),
 
     #[error("CommandMisuseError: {0}")]
     CommandMisuse(String),
@@ -88,7 +91,7 @@ pub enum Error {
     RoleNotAssignable(String),
 
     #[error("UserRoleError: \"{0}\"")]
-    UserRole(serenity::Error),
+    UserRole(Box<serenity::Error>),
 
     #[error("DatabaseFileError: Couldn't find anywhere to open or create a database.")]
     DatabaseFile,
@@ -99,6 +102,7 @@ pub enum Error {
     #[error("UndefinedWordError: {0}")]
     UndefinedWord(String),
 }
+
 
 impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self { Self::Io(value) }
@@ -127,6 +131,7 @@ impl Error {
             Error::JsonParse(_) => 9,
             Error::WikipedaSearch(_) => 10,
             Error::RonParse(_) => 11,
+            Error::Unexpected(_) => 12,
             Error::RedisError(_) => 13,
             Error::InternalLogic => 14,
             Error::ParseNumber(_) => 15,
@@ -150,7 +155,7 @@ impl Error {
 }
 
 impl From<task::JoinError> for Error {
-    fn from(value: task::JoinError) -> Self { Self::JoinError(value) }
+    fn from(value: task::JoinError) -> Self { Self::JoinError(Box::new(value)) }
 }
 
 impl From<reqwest::Error> for Error {

@@ -120,7 +120,7 @@ impl DiscordCommand for Define {
                 attachments.push(
                     CreateAttachment::url(&args.context.http, audio_url)
                         .await
-                        .map_err(Error::SerenityHttpRequest)?,
+                        .map_err(|e| Error::SerenityHttpRequest(Box::new(e)))?,
                 );
             }
         }

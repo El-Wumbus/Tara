@@ -55,8 +55,12 @@ impl Configuration {
     pub async fn from_toml(path: impl Into<std::path::PathBuf>) -> Result<Self> {
         let path = path.into();
         let file_contents = fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed =
-            toml::from_str(&file_contents).map_err(|e| Error::ConfigurationParse { path, error: e })?;
+        let parsed = toml::from_str(&file_contents).map_err(|e| {
+            Error::ConfigurationParse {
+                path,
+                error: Box::new(e),
+            }
+        })?;
         Ok(parsed)
     }
 }
