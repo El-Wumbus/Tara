@@ -1,4 +1,5 @@
 use thiserror::Error;
+use tokio::task;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -9,6 +10,9 @@ pub enum Error {
 
     #[error("IOError: {0}")]
     Io(tokio::io::Error),
+
+    #[error("InternalError/JoinError: {0}")]
+    JoinError(task::JoinError),
 
     /// There's no configuration file to parse.
     #[error("MissingConfigurationFile: No configuration file found.")]
@@ -38,6 +42,9 @@ pub enum Error {
 
     #[error("HTTPRequestError: {0}")]
     HttpRequest(reqwest::Error),
+
+    #[error("HTTPRequestError: {0}")]
+    SerenityHttpRequest(serenity::Error),
 
     #[error("CommandMisuseError: {0}")]
     CommandMisuse(String),
@@ -91,6 +98,9 @@ pub enum Error {
 
     #[error("ReadLineError: {0}")]
     ReadLine(rustyline::error::ReadlineError),
+
+    #[error("UndefinedWordError: {0}")]
+    UndefinedWord(String),
 }
 
 impl Error {
@@ -121,11 +131,22 @@ impl Error {
             Error::DatabaseFile => 22,
             Error::ReadLine(_) => 23,
             Error::ConfigurationSave { .. } => 24,
+            Error::SerenityHttpRequest(_) => 25,
+            Error::JoinError(_) => 26,
+            Error::UndefinedWord(_) => 27,
         }
     }
 
     /// Return a hex-formatted error code associated with the error
     pub fn code(&self) -> String { format!("0x{:02X}", self._code()) }
+}
+
+impl From<task::JoinError> for Error {
+    fn from(value: task::JoinError) -> Self { Self::JoinError(value) }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(value: reqwest::Error) -> Self { Self::HttpRequest(value) }
 }
 
 impl From<rusqlite::Error> for Error {
