@@ -8,6 +8,11 @@ repository = "https://github.com/El-Wumbus/Tara"
 keywords = ["discord", "discord-bot"]
 authors = ["Decator <decator.c@proton.me>"]
 
+[package.metadata.deb]
+maintainer-scripts = "debian/"
+systemd-units = { enable = true }
+features = ["music"]
+
 [dependencies]
 tokio = { version = "1.28", features = ["macros", "rt-multi-thread"] }
 serenity = { default-features = false, features = [
