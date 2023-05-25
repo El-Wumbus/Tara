@@ -70,7 +70,7 @@ The file's content's should be the same regardless of operating system, but the 
 The configuration file should look similarly to below:
 
 ```toml
-direct_message_cooldown = 5 # Optional
+randomErrorMessage = false
 
 [secrets]
 # Discord bot token
@@ -81,6 +81,33 @@ currencyApiKey = "<CURRENCYAPI.COM>" # Optional
 ```
 
 All accepted keys:
+
+- *`randomErrorMessage`* - This key allows for error messages to be selected randomly from a set loaded from a JSON document.
+  If setting this key to `true`, it will look in the default locations for a `error_messages.json` file. If enabled and the file
+  cannot be parsed (because it doesn't exist or is invalid), Tara will continue with the default error messages. Another choice
+  is to set this to the path of the error messages file. A value of `false` will use a singular, static error message.
+
+  The default location for the error messages file is system dependant.
+
+  <details>
+  <summary>Linux</summary>
+
+    > Tara will look in these locations for an existing file.
+    >
+    > 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or `$HOME/.config/Tara/error_messages.json`
+    > 2. `/etc/tara.d/error_messages.json`
+
+  </details>
+
+  <details>
+  <summary>macOS</summary>
+
+    > Tara will look here for an existing file:
+    > `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/error_messages.json`
+
+  </details>
+
+  
 
 - *`direct_message_cooldown`* - This optional key is to set the minimum duration, in seconds, to allow between running commands in a direct message. The default is `3`.
 
