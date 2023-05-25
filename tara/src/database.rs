@@ -24,7 +24,7 @@ use serenity::{
     http::Http,
     model::prelude::{GuildId, RoleId},
 };
-use tokio::{fs::File, sync::RwLock, task};
+use tokio::{fs::{File, self}, sync::RwLock, task};
 
 use crate::{defaults, error::Result};
 
@@ -154,9 +154,15 @@ impl Guilds {
     }
 
     pub async fn save(&self) -> Result<()> {
+        let path = GUILD_PREFERENCES_PATH.as_path();
+        let parent = path.parent().unwrap();
+        if !parent.exists() {
+            fs::create_dir_all(parent).await?;
+        }
+        
         // Create a BufWriter and a serializer
         let guild_preferences_writer = std::io::BufWriter::new(
-            File::create(GUILD_PREFERENCES_PATH.as_path())
+            File::create(path)
                 .await?
                 .into_std()
                 .await,
