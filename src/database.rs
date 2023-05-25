@@ -7,8 +7,6 @@ use tokio::fs;
 
 use crate::config;
 
-pub const DEFAULT_DATABASE_DIRECTORY: &str = "/var/db/tara/";
-
 #[derive(Debug)]
 pub struct Databases
 {
@@ -130,7 +128,7 @@ impl Databases
         config: Arc<config::Configuration>,
     ) -> crate::Result<r2d2::Pool<SqliteConnectionManager>>
     {
-        let database_path = guild_database_path(&config);
+        let database_path = guild_database_path(&config)?;
         fs::create_dir_all(database_path.parent().unwrap())
             .await
             .map_err(crate::Error::Io)?;
@@ -168,11 +166,11 @@ impl Databases
 
 /// Get the guild database path
 #[inline]
-fn guild_database_path(config: &config::Configuration) -> path::PathBuf
+fn guild_database_path(config: &config::Configuration) -> crate::Result<path::PathBuf>
 {
-    config
+    Ok(config
         .databases_path
         .clone()
-        .unwrap_or(path::PathBuf::from(DEFAULT_DATABASE_DIRECTORY))
-        .join("guildSettings.sqlite")
+        .unwrap_or(crate::paths::database_directory()?)
+        .join("guildSettings.sqlite"))
 }

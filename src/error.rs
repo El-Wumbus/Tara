@@ -12,8 +12,8 @@ pub enum Error
     Io(tokio::io::Error),
 
     /// There's no configuration file to parse.
-    #[error("MissingConfigurationFile: {0}")]
-    MissingConfigurationFile(String),
+    #[error("MissingConfigurationFile: No configuration file found.")]
+    MissingConfigurationFile,
 
     /// Configuration parsing failed
     #[error("ConfigurationParseError: \"{}\": {error}", path.display())]
@@ -80,8 +80,11 @@ pub enum Error
     #[error("RoleNotAssignableError: \"{0}\" isn't an assignable role")]
     RoleNotAssignable(String),
 
-    #[error("UnableToSetUserRoleError: \"{0}\"")]
-    UnableToSetUserRole(serenity::Error),
+    #[error("UserRoleError: \"{0}\"")]
+    UserRole(serenity::Error),
+
+    #[error("DatabaseFileError: Couldn't find anywhere to open or create a database.")]
+    DatabaseFile,
 }
 
 impl Error
@@ -93,7 +96,7 @@ impl Error
             Error::NoDatabaseRecord => 0,
             Error::ClientInitialization(_) => 1,
             Error::Io(_) => 2,
-            Error::MissingConfigurationFile(_) => 3,
+            Error::MissingConfigurationFile => 3,
             Error::ConfigurationParse { .. } => 4,
             Error::MessageParse { .. } => 5,
             Error::ExpectedSuboption => 6,
@@ -111,7 +114,8 @@ impl Error
             Error::InappropriateSearch(_) => 18,
             Error::DirectMessageCooldown(_) => 19,
             Error::RoleNotAssignable(_) => 20,
-            Error::UnableToSetUserRole(_) => 21,
+            Error::UserRole(_) => 21,
+            Error::DatabaseFile => 22,
         };
 
         format!("0x{n:02X}")
