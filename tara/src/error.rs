@@ -101,8 +101,26 @@ pub enum Error {
 
     #[error("UndefinedWordError: {0}")]
     UndefinedWord(String),
+
+    #[error("CSV Serialization error: {0}")]
+    CsvSerailization(String),
 }
 
+impl From<csv_async::Error> for Error {
+    fn from(value: csv_async::Error) -> Self {
+        match value.kind() {
+            csv_async::ErrorKind::Io(_) => {
+                if let csv_async::ErrorKind::Io(error) = value.into_kind() {
+                    Error::Io(error)
+                }
+                else {
+                    panic!()
+                }
+            }
+            _ => Error::CsvSerailization(value.to_string()),
+        }
+    }
+}
 
 impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self { Self::Io(value) }
@@ -147,6 +165,7 @@ impl Error {
             Error::SerenityHttpRequest(_) => 25,
             Error::JoinError(_) => 26,
             Error::UndefinedWord(_) => 27,
+            Error::CsvSerailization(_) => 28,
         }
     }
 

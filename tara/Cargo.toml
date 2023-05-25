@@ -10,17 +10,29 @@ authors = ["Decator <decator.c@proton.me>"]
 
 [dependencies]
 tokio = { version = "1.28", features = ["macros", "rt-multi-thread"] }
-serenity = { default-features = false, features = ["client", "gateway", "model", "rustls_backend", "cache"], git = "https://github.com/serenity-rs/serenity", rev = "c628b15228ae1044d2a3e785a52b9cd8e8f52f21"}
+serenity = { default-features = false, features = [
+    "client",
+    "gateway",
+    "model",
+    "rustls_backend",
+    "cache",
+], git = "https://github.com/serenity-rs/serenity", rev = "c628b15228ae1044d2a3e785a52b9cd8e8f52f21" }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.7.3"
-log = "0.4.17"
-env_logger = "0.10.0"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = [
+    "fmt",
+    "local-time",
+    "env-filter",
+    "smallvec",
+    "parking_lot",
+] }
 thiserror = "1"
 lazy_static = "1.4.0"
 async-trait = "0.1.68"
 rand = "0.8.5"
 serde_json = "1.0.96"
-reqwest = { version = "0.11.17", features = ["json"]}
+reqwest = { version = "0.11.17", features = ["json"] }
 structstruck = "0.4"
 urlencoding = "2.1.2"
 truncrate = "0.1.3"
@@ -33,6 +45,8 @@ structopt = { version = "0.3.26", features = ["color", "suggestions"] }
 rustyline = "11.0"
 once_cell = { version = "1.17", features = ["parking_lot"] }
 ron = "0.8"
+crossbeam-queue = "0.3.8"
+csv-async = { version = "1.2.6", features = ["tokio"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

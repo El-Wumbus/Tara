@@ -8,8 +8,13 @@ use serenity::{
     http::Http,
     prelude::Context,
 };
+use tracing::{event, info, Level};
 
-use crate::{config, database, Error, Result};
+use crate::{
+    config, database,
+    logging::{CommandLogger, LoggedCommandEvent},
+    Result,
+};
 
 mod conversions;
 mod core;
@@ -98,7 +103,8 @@ impl CommandResponse {
         let response = CreateInteractionResponse::Message(response_message);
 
         if let Err(e) = command.create_response(http, response).await {
-            log::error!(
+            event!(
+                Level::ERROR,
                 "Couldn't respond to command ({}): {e}",
                 command.data.name.as_str()
             );
@@ -118,56 +124,59 @@ pub async fn run_command(
     config: Arc<config::Configuration>,
     guild_preferences: database::Guilds,
     error_messages: Arc<config::ErrorMessages>,
+    logger: CommandLogger,
 ) {
+    let command_event = LoggedCommandEvent::from_command_interaction(&context.cache, &command);
+    logger.enqueue(command_event).await;
     let command_name = command.data.name.as_str();
 
     // Search the command name in the HashMap of commands (`COMMANDS`)
-    if let Some(cmd) = COMMANDS.get(command_name) {
-        let context = Arc::new(context);
-        let command = Arc::new(command);
-        let command_arguments = CommandArguments {
-            context: context.clone(),
-            command: command.clone(),
-            guild,
-            config: config.clone(),
-            guild_preferences,
-        };
-
-        // Run the command.
-        match cmd.run(command_arguments).await {
-            Err(e) => notify_user_of_error(e, &context.http, &command, &error_messages).await,
-            Ok(response) if !response.is_none() => response.send(&command, &context.http).await,
-            Ok(content) if content.is_none() => {
-                // Do nothing. content should only be empty if the command we called
-                // already responded.
-            }
-            _ => unreachable!(),
-        }
-
-        return;
-    }
-
-    CommandResponse::EphemeralString(format!("Command \"{command_name}\" doesn't exist."))
+    let Some(cmd) = COMMANDS.get(command_name) else {
+        CommandResponse::EphemeralString(format!("Command \"{command_name}\" doesn't exist."))
         .send(&command, &context.http)
         .await;
-}
 
-pub async fn notify_user_of_error(
-    e: Error,
-    http: &Http,
-    command: &CommandInteraction,
-    error_messages: &config::ErrorMessages,
-) {
-    let error_message = pick_error_message(error_messages);
-    let msg = format!(
-        "{}: *[{}] {}.*\n{}",
-        error_message.0,
-        e.code(),
-        e,
-        error_message.1
+        return;
+    };
+
+    let context = Arc::new(context);
+    let command = Arc::new(command);
+    let command_arguments = CommandArguments {
+        context: context.clone(),
+        command: command.clone(),
+        guild,
+        config: config.clone(),
+        guild_preferences,
+    };
+
+    // Run the command.
+    let user = &command.user;
+    let dm_or_server = match command_arguments.guild.as_ref() {
+        Some(x) => format!("server \"{}\" (id: {})", x.name, x.id),
+        None => "DM".to_string(),
+    };
+
+    info!(
+        "Running \"{}\" (id: {}) on behalf of user \"{}\" (id: {}) running in {dm_or_server}",
+        command.data.name, command.data.id, user.name, user.id,
     );
 
-    CommandResponse::EphemeralString(msg).send(command, http).await;
+    match cmd.run(command_arguments).await {
+        Ok(response) => response.send(&command, &context.http).await,
+        Err(e) => {
+            let error_message = pick_error_message(&error_messages);
+
+            CommandResponse::EphemeralString(format!(
+                "{}: *[{}] {}.*\n{}",
+                error_message.0,
+                e.code(),
+                e,
+                error_message.1
+            ))
+            .send(&command, &context.http)
+            .await;
+        }
+    }
 }
 
 /// Randomly select an error message pre/postfix

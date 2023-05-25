@@ -1,7 +1,8 @@
 #![feature(const_trait_impl)]
 
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 
+use once_cell::sync::Lazy;
 use rustyline::{history::FileHistory, Editor};
 use serenity::{
     all::{Command, Guild, Interaction, Ready},
@@ -18,15 +19,23 @@ use tara::{
     commands, config,
     database::{self, GuildPreferences},
     error::{Error, Result},
-    paths,
+    logging, paths,
 };
-use tokio::fs;
+use tokio::{fs, task};
+use tracing::{debug, error, info, metadata::LevelFilter};
+use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 
 const NAME: &str = "Tara";
-const DESCRIPTION: &str = "A modern self-hostable Discord bot.";
+
+static COMMAND_LOG_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    paths::project_dir()
+        .unwrap()
+        .data_dir()
+        .join(format!("command-log_{}.csv", chrono::Utc::now()))
+});
 
 #[derive(StructOpt, Debug, Clone)]
-#[structopt(name = NAME, about = DESCRIPTION)]
+#[structopt(name = NAME, about, author)]
 #[structopt(
     global_setting(ColorAuto),
     global_setting(ColoredHelp),
@@ -41,6 +50,9 @@ enum Options {
         #[structopt(long)]
         /// Specify a configuration file to use instead of the default.
         config: Option<PathBuf>,
+
+        #[structopt(short, long, name = "LOGLEVEL")]
+        log_level: Option<LogLevel>,
     },
 }
 
@@ -50,10 +62,55 @@ enum SubOptionConfig {
     Init,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+enum LogLevel {
+    Error,
+    Warn,
+    #[default]
+    Info,
+    Debug,
+    Trace,
+    Off,
+}
+
+impl FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match &*s.to_lowercase() {
+            "error" => Ok(Self::Error),
+            "warn" => Ok(Self::Warn),
+            "info" => Ok(Self::Info),
+            "debug" => Ok(Self::Debug),
+            "trace" => Ok(Self::Trace),
+            "off" => Ok(Self::Off),
+            _ => {
+                Err(format!(
+                    "\"{s}\" isn't a LogLevel variant. They are as follows: Error, Warn, Info, Debug, \
+                     Trace, Off"
+                ))
+            }
+        }
+    }
+}
+
+impl From<LogLevel> for LevelFilter {
+    fn from(value: LogLevel) -> Self {
+        match value {
+            LogLevel::Error => Self::ERROR,
+            LogLevel::Warn => Self::WARN,
+            LogLevel::Info => Self::INFO,
+            LogLevel::Debug => Self::DEBUG,
+            LogLevel::Trace => Self::TRACE,
+            LogLevel::Off => Self::OFF,
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> std::result::Result<(), anyhow::Error> {
     match Options::from_args() {
-        Options::Daemon { config } => daemon(config).await?,
+        Options::Daemon { config, log_level } => daemon(config, log_level).await?,
         Options::Config(option) => {
             match option {
                 SubOptionConfig::Init => init().await?,
@@ -64,10 +121,19 @@ async fn main() -> std::result::Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
+async fn daemon(
+    config_path: Option<PathBuf>,
+    log_level: Option<LogLevel>,
+) -> std::result::Result<(), anyhow::Error> {
     // Setup logging
-    env_logger::init();
-    log::info!("Initialized Logging");
+    let log_level: LevelFilter = log_level.unwrap_or_default().into();
+    let filter = EnvFilter::builder()
+        .with_default_directive(log_level.into())
+        .parse("")?;
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_filter(filter))
+        .init();
+    info!("Initialized Logging");
 
     // Get the configuration file path and read the configuration from it.
     let config_path = match config_path {
@@ -75,7 +141,7 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
         None => paths::config_file_path()?,
     };
     let config = Arc::new(config::Configuration::from_toml(&config_path).await?);
-    log::info!("Loaded configuration from \"{}\"", config_path.display());
+    debug!("Loaded configuration from \"{}\"", config_path.display());
 
     // Get error messsages
     let error_messages = load_error_messages(config.clone());
@@ -91,18 +157,27 @@ async fn daemon(config_path: Option<PathBuf>) -> Result<()> {
         Ok(x) => x,
     };
 
+    let logger = logging::CommandLogger::new();
+
     // Initialize && start client
     let mut client = Client::builder(config.secrets.token.clone(), intents)
         .event_handler(EventHandler {
             guilds: guilds.clone(),
             config,
+            logger: logger.clone(),
             error_messages: error_messages.await,
         })
         .await
         .map_err(|e| Error::ClientInitialization(Box::new(e)))?;
 
+    task::spawn(async move {
+        let logger = logger.clone();
+        if let Err(e) = logger.log_to_file(COMMAND_LOG_PATH.as_path()).await {
+            error!("LOGGING ERORR: {e}");
+        };
+    });
     if let Err(why) = client.start().await {
-        log::error!("Error: {:?}", why);
+        error!("Error: {:?}", why);
     }
 
     Ok(())
@@ -225,6 +300,7 @@ async fn init() -> Result<()> {
 struct EventHandler {
     config:         Arc<config::Configuration>,
     error_messages: Arc<config::ErrorMessages>,
+    logger:         logging::CommandLogger,
     guilds:         database::Guilds,
 }
 
@@ -244,16 +320,17 @@ impl client::EventHandler for EventHandler {
                 self.config.clone(),
                 self.guilds.clone(),
                 self.error_messages.clone(),
+                self.logger.clone(),
             )
             .await;
         }
     }
 
     async fn ready(&self, context: Context, ready: Ready) {
-        log::info!("{} is connected!", ready.user.name);
+        info!("{} is connected!", ready.user.name);
         context.set_activity(Some(ActivityData::watching("El-Wumbus/Tara on GitHub")));
 
-        log::info!("Registering commands...");
+        info!("Registering commands...");
         // For each command in the map, run `.register()` on it.
         let global_commands = commands::COMMANDS
             .values()
@@ -263,7 +340,7 @@ impl client::EventHandler for EventHandler {
         Command::set_global_application_commands(&context.http, global_commands)
             .await
             .expect("Unable to register commands.");
-        log::info!("Commands registered.");
+        info!("Commands registered.");
 
         // On startup we check, for each guild we're in, if the guild if present in the
         // database. If it's not, we add it with the default configuration.
@@ -275,10 +352,7 @@ impl client::EventHandler for EventHandler {
             }
         }
         if let Err(e) = self.guilds.save().await {
-            log::error!("Couldn't add guilds to database: {e}");
-        }
-        else {
-            log::info!("Added guilds to database");
+            error!("Couldn't save guild preferences to database: {e}");
         }
     }
 }
