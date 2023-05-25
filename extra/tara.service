@@ -1,0 +1,10 @@
+[Unit]
+Description=The Tara Discord bot.
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tara
+
+[Install]
+WantedBy=multi-user.target
