@@ -25,7 +25,7 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <details>
 <summary>Linux</summary>
 
-> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [is outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release] instead.
+> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [may be outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release].
 >
 > | Distribution | Repository      | Instructions                  |
 > | ------------ | --------------- | ----------------------------- |
@@ -36,21 +36,21 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <details>
 <summary>macOS</summary>
 
-> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [is outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release] instead.
+> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [may be outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release].
 > | Repository      | Instructions                 |
 > | --------------- | ---------------------------- |
 > | **[crates.io]** | `cargo install tara --locked`|
 
 </details>
 
-1. **Configure**
+2. **Configure**
 
 Before the bot can be started successfully, it needs to be configured.
 Tara has an interactive setup subcommand, `tara config init`.
 
 ```sh
 $ tara config init --help
-tara-config-init 0.4.0
+tara-config-init 0.3.1
 Create configuration files with a user-provided configuration
 
 USAGE:
@@ -69,7 +69,7 @@ The file's content's should be the same regardless of operating system, but the 
 
 > Tara looks for a configuration file in this order:
 >
-> 1. `$XDG_CONFIG_HOME/tara/tara.toml` or `$HOME/.config/tara/tara.toml`
+> 1. `$XDG_CONFIG_HOME/Tara/tara.toml` or `$HOME/.config/Tara/tara.toml`
 > 2. `/etc/tara.d/tara.toml`
 
 </details>
@@ -92,9 +92,6 @@ token = "<DISCORD_TOKEN>"
 
 # API key from currencyapi.com.
 currencyApiKey = "<CURRENCYAPI.COM>" # Optional
-
-[music] # Optional
-enabled = false
 ```
 
 All accepted keys:
@@ -130,10 +127,7 @@ All accepted keys:
 
 - *`secrets.token`* - The discord token can be aquired according to *[Building your first Discord app][discord-getting-started]*.
 
-  - *`secrets.currencyApiKey`* - The `currencyApiKey` is an optional key to enable the currency conversion feature. This can be aquired from [currencyapi.com][currencyapi]. The feature will, at most, refresh every six hours. This means the feature will never need a paid API key.
-
-- *`music`* - Optional: This only takes effect if Tara is compiled with the alpha feature `music` enabled.
-  - *`music.enabled`* - Enables or disables the music feature at runtime.
+- *`secrets.currencyApiKey`* - The `currencyApiKey` is an optional key to enable the currency conversion feature. This can be aquired from [currencyapi.com][currencyapi]. The feature will, at most, refresh every six hours. This means the feature will never need a paid API key.
 
 # Using
 
@@ -175,11 +169,6 @@ OPTIONS:
 | `role add`                | Give yourself a self-assignable role                                                     | No             | *NONE*       |
 | `role remove`             | Remove a self-assignable role                                                            | No             | *NONE*       |
 | `role list`               | List all self-assignable roles                                                           | No             | *NONE*       |
-| `music play`              | Join your voice channel and play a song [from YouTube]                                   | No             | *NONE*       |
-| `music stop`              | Stop playback                                                                            | No             | *NONE*       |
-| `music pause`             | Pause the currently playing track                                                        | No             | *NONE*       |
-| `music unpause`           | Resume a currently paused track                                                          | No             | *NONE*       |
-| `music leave`             | Leave your voice channel                                                                 | No             | *NONE*       |
 
 [crates.io]: https://crates.io/crates/tara
 [crates.io-badge]: https://img.shields.io/crates/v/tara?logo=Rust&style=flat-square

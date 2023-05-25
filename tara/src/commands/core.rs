@@ -1,11 +1,4 @@
-use serenity::{
-    all::{CommandDataOption, CommandDataOptionValue, CommandInteraction, GuildId},
-    builder::{
-        CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
-    },
-    http::Http,
-};
-use tracing::{event, Level};
+use serenity::all::{CommandDataOption, CommandDataOptionValue, GuildId};
 
 use super::Result;
 use crate::{
@@ -63,64 +56,4 @@ pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
     }
 
     input.to_string()
-}
-
-#[derive(Debug, Clone)]
-pub enum CommandResponse {
-    String(String),
-    EditString(String),
-    EphemeralString(String),
-    Embed(Box<CreateEmbed>),
-    EditEmbed(Box<CreateEmbed>),
-    EditResponse(Box<EditInteractionResponse>),
-    Message(CreateInteractionResponseMessage),
-    None,
-}
-
-impl CommandResponse {
-    pub fn new_string(s: impl Into<String>) -> Self { Self::from(s.into()) }
-
-    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
-
-    pub async fn send(self, command: &CommandInteraction, http: &Http) {
-        let message = CreateInteractionResponseMessage::new();
-        let response_message = match self {
-            CommandResponse::String(s) => message.content(s),
-            CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
-            CommandResponse::Embed(embed) => message.embed(*embed),
-            CommandResponse::Message(message) => message,
-            CommandResponse::None => return,
-            CommandResponse::EditString(_)
-            | CommandResponse::EditResponse(_)
-            | CommandResponse::EditEmbed(_) => {
-                let edit = match self {
-                    CommandResponse::EditString(s) => EditInteractionResponse::new().content(s),
-                    CommandResponse::EditEmbed(embed) => EditInteractionResponse::new().embed(*embed),
-                    CommandResponse::EditResponse(r) => *r,
-                    _ => unreachable!(),
-                };
-
-                if let Err(e) = command.edit_response(http, edit).await {
-                    event!(
-                        Level::ERROR,
-                        "Couldn't edit response to command ({}): {e}",
-                        command.data.name.as_str()
-                    );
-                }
-                return;
-            }
-        };
-        let response = CreateInteractionResponse::Message(response_message);
-        if let Err(e) = command.create_response(http, response).await {
-            event!(
-                Level::ERROR,
-                "Couldn't respond to command ({}): {e}",
-                command.data.name.as_str()
-            );
-        }
-    }
-}
-
-impl From<String> for CommandResponse {
-    fn from(value: String) -> Self { Self::String(value) }
 }

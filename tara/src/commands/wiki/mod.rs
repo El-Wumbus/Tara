@@ -61,7 +61,7 @@ impl DiscordCommand for Wiki {
             .description(content)
             .url(url.to_string());
 
-        Ok(CommandResponse::Embed(Box::new(embed)))
+        Ok(CommandResponse::Embed(embed))
     }
 
     fn name(&self) -> &'static str { "wikipedia" }

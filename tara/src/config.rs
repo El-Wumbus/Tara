@@ -3,15 +3,12 @@ use tokio::fs;
 
 use crate::{Error, Result};
 
-pub mod music;
-
 /// Configurations required to host the bot
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
     pub secrets:              ConfigurationSecrets,
     pub random_error_message: ConfigurationRandomErrorMessages,
-    pub music:                Option<music::Music>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -73,7 +70,6 @@ impl Default for Configuration {
         Self {
             secrets:              ConfigurationSecrets::default(),
             random_error_message: ConfigurationRandomErrorMessages::Boolean(true),
-            music:                Some(music::Music::default()),
         }
     }
 }

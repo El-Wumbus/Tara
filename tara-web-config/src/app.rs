@@ -1,7 +1,6 @@
-use leptos::*;
+use leptos::{*};
 use leptos_meta::*;
 use leptos_router::*;
-
 use crate::dark_mode::{DarkModeToggle, DarkModeToggleProps};
 
 // Helper to register all our server functions, if we're in SSR mode

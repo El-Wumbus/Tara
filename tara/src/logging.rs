@@ -44,9 +44,6 @@ impl CommandLogger {
     ///
     /// # Errors
     ///
-    ///
-    ///
-    ///
     /// Errors may occurr if:
     /// - writing to the provided file raises an IO error
     /// - serilization raises an error
