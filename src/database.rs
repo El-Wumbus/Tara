@@ -47,7 +47,7 @@ impl Databases {
         let mut statement = connection
             .prepare(&format!(
                 "SELECT EXISTS (SELECT 1 FROM {table} WHERE GuildID={})",
-                id.as_u64()
+                u64::from(*id.as_inner())
             ))
             .map_err(crate::Error::from)?;
         let exists = statement.query_row([], |row| {
@@ -71,11 +71,10 @@ impl Databases {
                 "INSERT INTO guilds (GuildID, max_content_chars, assignable_roles)
                     VALUES (?1, ?2, ?3)",
                 params![
-                    guild_id.as_u64(),
+                    u64::from(*guild_id.as_inner()),
                     crate::commands::wiki::Wiki::DEFAULT_MAX_WIKI_LEN,
                     {
-                        let mut assignable_roles: HashSet<RoleId> = HashSet::new();
-                        assignable_roles.insert(RoleId(0));
+                        let assignable_roles: HashSet<RoleId> = HashSet::new();
                         bincode::serialize(&assignable_roles).unwrap()
                     }
                 ],

@@ -25,7 +25,7 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <details>
 <summary>Linux</summary>
 
-> The recommended way to install Tara is by way of a package manager.
+> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [may be outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release].
 > If using `cargo install`, some dependencies won't automatically be installed. You'll need to install `sqlite3` previous to running the instructions.
 > On Debian and Ubuntu systems the required package is `libsqlite3-dev`, on Arch and related systems it's `sqlite`.
 >
@@ -38,7 +38,7 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <details>
 <summary>macOS</summary>
 
-> The recommended way to install Tara is by way of a package manager.
+> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [may be outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release].
 > | Repository      | Instructions                 |
 > | --------------- | ---------------------------- |
 > | **[crates.io]** | `cargo install tara --locked`|
@@ -52,7 +52,7 @@ Tara has an interactive setup subcommand, `tara config init`.
 
 ```sh
 $ tara config init --help
-tara-config-init 0.2.0
+tara-config-init 0.3.1
 Create configuration files with a user-provided configuration
 
 USAGE:
@@ -139,7 +139,7 @@ To start Tara, use the `tara daemon` command. If no errors or warnings occur, Ta
 
 ```sh
 $ tara daemon --help
-tara-daemon 0.2.0
+tara-daemon  0.3.1
 Start Tara
 
 USAGE:

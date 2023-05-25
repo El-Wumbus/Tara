@@ -2,16 +2,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serenity::{
-    builder::CreateApplicationCommand,
-    model::prelude::{
-        command::CommandOptionType, interaction::application_command::ApplicationCommandInteraction,
-    },
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, Guild},
+    builder::{CreateCommand, CreateCommandOption},
     prelude::Context,
 };
 use truncrate::TruncateToBoundary;
 
 use super::DiscordCommand;
-use crate::{config, Error, Result};
+use crate::{config, Result};
 
 mod api;
 
@@ -26,44 +24,38 @@ impl Wiki {
 
 #[async_trait]
 impl DiscordCommand for Wiki {
-    fn register<'a>(&'a self, command: &'a mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-        command
-            .name(self.name())
+    fn register(&self) -> CreateCommand {
+        let options = vec![CreateCommandOption::new(
+            CommandOptionType::String,
+            "title",
+            "The title to search wikipedia.org for",
+        )
+        .required(true)];
+
+        CreateCommand::new(self.name())
             .description("Get a summary of a topic from wikipedia.org")
             .dm_permission(true)
-            .create_option(|option| {
-                option
-                    .name("title")
-                    .description("The title to search wikipedia.org for")
-                    .kind(CommandOptionType::String)
-                    .required(true)
-            })
+            .set_options(options)
     }
 
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        _guild: Option<Guild>,
         _config: Arc<config::Configuration>,
         databases: Arc<crate::database::Databases>,
     ) -> Result<String> {
         use api::Page;
-        let mut title = String::new();
 
-        for option in &command.data.options {
-            match &*option.name {
-                "title" => {
-                    title = option
-                        .value
-                        .clone()
-                        .unwrap_or_default()
-                        .as_str()
-                        .unwrap_or_default()
-                        .to_string();
-                }
-                _ => return Err(Error::InternalLogic),
+        let title = {
+            // Get the role argument
+            let mut title = None;
+            if let CommandDataOptionValue::String(input) = &command.data.options[0].value {
+                title = Some(input);
             }
-        }
+            title.unwrap().trim().to_owned()
+        };
 
         let page = Page::search(&title).await?;
         let url = &page.url.clone();

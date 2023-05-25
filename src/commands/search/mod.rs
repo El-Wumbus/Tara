@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serenity::{
-    model::prelude::{
-        command::CommandOptionType,
-        interaction::application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    },
+    all::{CommandInteraction, CommandOptionType},
+    builder::{CreateCommand, CreateCommandOption},
+    model::prelude::Guild,
     prelude::Context,
 };
 use truncrate::TruncateToBoundary;
@@ -22,41 +21,37 @@ pub struct Search;
 
 #[async_trait]
 impl DiscordCommand for Search {
-    fn register<'a>(
-        &'a self,
-        command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand {
-        command
-            .name(self.name())
+    fn register(&self) -> CreateCommand {
+        let options = vec![CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "duckduckgo",
+            "Search DuckDuckGo (duckduckgo.com/html)",
+        )
+        .add_sub_option(
+            CreateCommandOption::new(CommandOptionType::String, "search_term", "The search term")
+                .required(true),
+        )
+        .add_sub_option(
+            CreateCommandOption::new(
+                CommandOptionType::Integer,
+                "result_count",
+                "The number of results to return (MIN: 1, MAX: 8)",
+            )
+            .required(false),
+        )];
+
+        CreateCommand::new(self.name())
             .description("Search the internet")
             .dm_permission(true)
-            .create_option(|option| {
-                option
-                    .name("duckduckgo")
-                    .description("Search DuckDuckGo (safe.duckduckgo.com)")
-                    .kind(CommandOptionType::SubCommand)
-                    .create_sub_option(|option| {
-                        option
-                            .name("search_term")
-                            .description("The search term")
-                            .kind(CommandOptionType::String)
-                            .required(true)
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("result_count")
-                            .description("The number of results to return (MIN: 1, MAX: 8)")
-                            .kind(CommandOptionType::Integer)
-                            .required(false)
-                    })
-            })
+            .set_options(options)
     }
 
     #[allow(clippy::cast_possible_truncation)]
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        _guild: Option<Guild>,
         _config: Arc<crate::config::Configuration>,
         databases: Arc<crate::database::Databases>,
     ) -> crate::Result<String> {
@@ -66,12 +61,11 @@ impl DiscordCommand for Search {
                 let mut search_term = None;
                 let mut result_count = 2;
 
-                if let Some(CommandDataOptionValue::String(input)) = &option.options[0].resolved {
-                    search_term = Some(input.trim().to_lowercase());
-                }
-                if let Some(x) = option.options.get(1) {
-                    if let Some(CommandDataOptionValue::Integer(count)) = x.resolved {
-                        result_count = count as usize;
+                for option in super::core::suboptions(option) {
+                    match &*option.name {
+                        "search_term" => search_term = Some(option.value.as_str().unwrap().to_string()),
+                        "result_count" => result_count = option.value.as_i64().unwrap() as usize,
+                        _ => (),
                     }
                 }
 

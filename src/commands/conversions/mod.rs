@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serenity::{
-    model::prelude::{
-        command::CommandOptionType,
-        interaction::application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    },
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
+    builder::{CreateCommand, CreateCommandOption},
+    model::prelude::Guild,
     prelude::Context,
 };
 use tokio::sync::Mutex;
@@ -27,85 +26,81 @@ pub struct Conversions;
 
 #[async_trait]
 impl DiscordCommand for Conversions {
-    fn register<'a>(
-        &'a self,
-        command: &'a mut serenity::builder::CreateApplicationCommand,
-    ) -> &mut serenity::builder::CreateApplicationCommand {
-        command
-            .name(self.name())
+    fn register(&self) -> CreateCommand {
+        let options = vec![
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "currency",
+                "Convert one currency to another, see GitHub for the supported currencies.",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "input",
+                    "The input including the currency (e.g. \"$45\" or \"8000 JPY\")",
+                )
+                .required(true),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "output",
+                    "The output currency (e.g. \"USD\" or \"CAD\")",
+                )
+                .required(true),
+            ),
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "temperature",
+                "Convert from one temperature unit to another. Supports Kelvin, Fahrenheit, and Celcius.",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "value",
+                    "Original value (e.g. '65F' [Fahrenheit], '18.33C' [Celsius].",
+                )
+                .required(true),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "target",
+                    "The unit to target. (e.g 'F' [Fahrenheit], 'K' [kelvin]).",
+                )
+                .required(true),
+            ),
+        ];
+
+        CreateCommand::new(self.name())
             .description("Convert one unit to another")
             .dm_permission(true)
-            .create_option(|option| {
-                option
-                    .name("currency")
-                    .description("Convert one currency to another, see GitHub for the supported currencies.")
-                    .kind(CommandOptionType::SubCommand)
-                    .create_sub_option(|option| {
-                        option
-                            .name("input")
-                            .description("The input including the currency (e.g. \"$45\" or \"8000 JPY\")")
-                            .kind(CommandOptionType::String)
-                            .required(true)
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("output")
-                            .description("The output currency (e.g. \"USD\" or \"CAD\")")
-                            .kind(CommandOptionType::String)
-                            .required(true)
-                    })
-            })
-            .create_option(|option| {
-                option
-                    .name("temperature")
-                    .kind(CommandOptionType::SubCommand)
-                    .description(
-                        "Convert from one temperature unit to another. Supports Kelvin, Fahrenheit, and \
-                         Celcius.",
-                    )
-                    .create_sub_option(|option| {
-                        option
-                            .name("value")
-                            .description("Original value (e.g. '65F' [Fahrenheit], '18.33C' [Celsius].")
-                            .kind(CommandOptionType::String)
-                            .required(true)
-                    })
-                    .create_sub_option(|option| {
-                        option
-                            .name("target")
-                            .description("The unit to target. (e.g 'F' [Fahrenheit], 'K' [kelvin]).")
-                            .kind(CommandOptionType::String)
-                            .required(true)
-                    })
-            })
+            .set_options(options)
     }
 
     async fn run(
         &self,
         _context: &Context,
-        command: &ApplicationCommandInteraction,
+        command: &CommandInteraction,
+        _guild: Option<Guild>,
         config: Arc<crate::config::Configuration>,
         _databases: Arc<crate::database::Databases>,
     ) -> Result<String> {
+        use super::core::suboptions;
         let option = &command.data.options[0];
         match &*option.name {
             "temperature" => {
-                let mut input = None;
-                let mut output = None;
-
+                let options = suboptions(option);
                 // Get the options
-                if let (
-                    Some(CommandDataOptionValue::String(inp)),
-                    Some(CommandDataOptionValue::String(out)),
-                ) = (&option.options[0].resolved, &option.options[1].resolved)
-                {
-                    input = Some(inp.trim().to_lowercase());
-                    output = Some(out.trim().to_lowercase());
-                }
-                let (Some(input), Some(output)) = (input, output) else { return Err(Error::InternalLogic) };
+                let(
+                    CommandDataOptionValue::String(input),
+                    CommandDataOptionValue::String(output),
+                ) = (&options[0].value, &options[1].value) else { return Err(Error::InternalLogic) };
+                let input = input.trim().to_lowercase();
+                let output = output.trim().to_lowercase();
 
                 // Convert and return
-                return temperature::convert(&input, &output);
+                temperature::convert(&input, &output)
             }
             "currency" => {
                 let api_key = match config.secrets.currency_api_key.clone() {
@@ -119,19 +114,14 @@ impl DiscordCommand for Conversions {
                     Some(x) => x,
                 };
 
-                let mut input = None;
-                let mut output = None;
-
+                let options = suboptions(option);
                 // Get the options
-                if let (
-                    Some(CommandDataOptionValue::String(inp)),
-                    Some(CommandDataOptionValue::String(out)),
-                ) = (&option.options[0].resolved, &option.options[1].resolved)
-                {
-                    input = Some(inp.trim().to_lowercase());
-                    output = Some(out.trim().to_lowercase());
-                }
-                let (Some(input), Some(output)) = (input, output) else { return Err(Error::InternalLogic) };
+                let(
+                    CommandDataOptionValue::String(input),
+                    CommandDataOptionValue::String(output),
+                ) = (&options[0].value, &options[1].value) else { return Err(Error::InternalLogic) };
+                let input = input.trim().to_lowercase();
+                let output = output.trim().to_lowercase();
 
                 let converter = match CURRENCY_CONVERTER.lock().await.clone() {
                     Some(x) => x,
@@ -143,9 +133,9 @@ impl DiscordCommand for Conversions {
                 // Update the currency converter
                 *CURRENCY_CONVERTER.lock().await = Some(c);
 
-                return Ok(r);
+                Ok(r)
             }
-            _ => return Err(Error::InternalLogic),
+            _ => Err(Error::InternalLogic),
         }
     }
 
