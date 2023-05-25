@@ -104,6 +104,17 @@ pub enum Error {
 
     #[error("CSV Serialization error: {0}")]
     CsvSerailization(String),
+
+    #[cfg(feature = "music")]
+    #[error("Error joining voice channel: {0}")]
+    JoinVoiceChannel(Box<songbird::error::JoinError>),
+
+    #[cfg(feature = "music")]
+    #[error("YouTubeInfoError: {0}")]
+    YoutubeInfo(String),
+
+    #[error("SerenityError(backend framework): {0}")]
+    SerenityErr(Box<serenity::Error>),
 }
 
 impl From<csv_async::Error> for Error {
@@ -166,6 +177,11 @@ impl Error {
             Error::JoinError(_) => 26,
             Error::UndefinedWord(_) => 27,
             Error::CsvSerailization(_) => 28,
+            #[cfg(feature = "music")]
+            Error::JoinVoiceChannel(_) => 29,
+            #[cfg(feature = "music")]
+            Error::YoutubeInfo(_) => 30,
+            Error::SerenityErr(_) => 31,
         }
     }
 
@@ -173,10 +189,25 @@ impl Error {
     pub fn code(&self) -> String { format!("0x{:02X}", self._code()) }
 }
 
+
 impl From<task::JoinError> for Error {
     fn from(value: task::JoinError) -> Self { Self::JoinError(Box::new(value)) }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self { Self::HttpRequest(value) }
+}
+
+impl From<serenity::Error> for Error {
+    fn from(value: serenity::Error) -> Self { Self::SerenityErr(Box::new(value)) }
+}
+
+
+#[cfg(feature = "music")]
+impl From<youtubei_rs::types::error::Errors> for Error {
+    fn from(value: youtubei_rs::types::error::Errors) -> Self { Self::YoutubeInfo(format!("{value:?}")) }
+}
+#[cfg(feature = "music")]
+impl From<songbird::error::JoinError> for Error {
+    fn from(value: songbird::error::JoinError) -> Self { Self::JoinVoiceChannel(Box::new(value)) }
 }
