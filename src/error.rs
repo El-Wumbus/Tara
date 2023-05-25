@@ -74,8 +74,14 @@ pub enum Error
     )]
     InappropriateSearch(String),
 
-    #[error("DirectMessageCooldown: Cooldown should end in {0}")]
+    #[error("DirectMessageCooldownError: Cooldown should end in {0}")]
     DirectMessageCooldown(chrono::Duration),
+
+    #[error("RoleNotAssignableError: \"{0}\" isn't an assignable role")]
+    RoleNotAssignable(String),
+
+    #[error("UnableToSetUserRoleError: \"{0}\"")]
+    UnableToSetUserRole(serenity::Error),
 }
 
 impl Error
@@ -104,6 +110,8 @@ impl Error
             Error::NoSearchResults(_) => 17,
             Error::InappropriateSearch(_) => 18,
             Error::DirectMessageCooldown(_) => 19,
+            Error::RoleNotAssignable(_) => 20,
+            Error::UnableToSetUserRole(_) => 21,
         };
 
         format!("0x{n:02X}")

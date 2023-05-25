@@ -14,7 +14,7 @@ use truncrate::TruncateToBoundary;
 use super::DiscordCommand;
 use crate::{Error, Result};
 
-pub static COMMAND: Define = Define;
+pub const COMMAND: Define = Define;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Define;
