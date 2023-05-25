@@ -39,7 +39,7 @@ r2d2 = "0.8.9"
 r2d2_sqlite = "0.21.0"
 cached = "0.42.0"
 chrono = { version = "0.4.24", features = ["serde"] }
-scraper = "0.15.0"
+scraper = "0.16.0"
 rustrict = { version = "0.7.4", features = ["customize"] }
 anyhow = "1.0.70"
 serde_with = { version = "2.3.1", features = ["chrono"] }
