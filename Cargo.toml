@@ -18,7 +18,7 @@ inherits = "release"
 
 [dependencies]
 tokio = { version = "1.27.0", features = ["macros", "rt-multi-thread"] }
-serenity = { default-features = false, features = ["client", "gateway", "model", "rustls_backend", "cache"], git = "https://github.com/serenity-rs/serenity", rev = "c628b15228ae1044d2a3e785a52b9cd8e8f52f21", version = "0.11.5"}
+serenity = { default-features = false, features = ["client", "gateway", "model", "rustls_backend", "cache"], git = "https://github.com/serenity-rs/serenity", rev = "c628b15228ae1044d2a3e785a52b9cd8e8f52f21"}
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.7.3"
 log = "0.4.17"
