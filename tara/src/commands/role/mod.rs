@@ -7,12 +7,12 @@ use serenity::{
 use super::{CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 
-pub const COMMAND: RoleCMD = RoleCMD;
+pub const COMMAND: Role = Role;
 
-pub struct RoleCMD;
+pub struct Role;
 
 #[async_trait]
-impl DiscordCommand for RoleCMD {
+impl DiscordCommand for Role {
     fn register(&self) -> CreateCommand {
         let options = vec![
             CreateCommandOption::new(CommandOptionType::SubCommand, "add", "Give yourself a role")
@@ -77,7 +77,7 @@ impl DiscordCommand for RoleCMD {
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = args.command.member.to_owned().unwrap();
+                let mut member = args.command.member.clone().unwrap();
 
                 // Add role
                 member
@@ -99,7 +99,7 @@ impl DiscordCommand for RoleCMD {
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = args.command.member.to_owned().unwrap();
+                let mut member = args.command.member.clone().unwrap();
 
                 // Remove role
                 member

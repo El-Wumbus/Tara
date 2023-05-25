@@ -9,7 +9,7 @@ keywords = ["discord", "discord-bot"]
 authors = ["Decator <decator.c@proton.me>"]
 
 [dependencies]
-tokio = { version = "1.28.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.28", features = ["macros", "rt-multi-thread"] }
 serenity = { default-features = false, features = ["client", "gateway", "model", "rustls_backend", "cache"], git = "https://github.com/serenity-rs/serenity", rev = "c628b15228ae1044d2a3e785a52b9cd8e8f52f21"}
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.7.3"
@@ -33,3 +33,6 @@ structopt = { version = "0.3.26", features = ["color", "suggestions"] }
 rustyline = "11.0"
 once_cell = { version = "1.17", features = ["parking_lot"] }
 ron = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"

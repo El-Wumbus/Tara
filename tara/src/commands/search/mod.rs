@@ -53,7 +53,7 @@ impl DiscordCommand for Search {
                 for option in super::core::suboptions(option) {
                     match &*option.name {
                         "search_term" => search_term = Some(option.value.as_str().unwrap().to_string()),
-                        "result_count" => result_count = option.value.as_i64().unwrap() as usize,
+                        "result_count" => result_count = option.value.as_i64().unwrap().max(0) as usize,
                         _ => (),
                     }
                 }

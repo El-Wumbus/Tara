@@ -69,7 +69,7 @@ impl DiscordCommand for Wiki {
             log::error!("Couldn't respond to command: {e}");
         }
 
-        Ok("".to_string())
+        Ok(String::new())
     }
 
     fn name(&self) -> String { String::from("wikipedia") }
