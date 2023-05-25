@@ -6,7 +6,7 @@ use rand::Rng;
 use serenity::{
     all::CommandOptionType,
     builder::{
-        CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
+        CreateAttachment, CreateCommand, CreateCommandOption, CreateInteractionResponse,
         CreateInteractionResponseMessage,
     },
 };
@@ -72,11 +72,15 @@ impl DiscordCommand for Random {
                     "dog" => Image::from(images::DogImage::random().await?).link,
                     _ => unreachable!(),
                 };
-                // Create embed and respond to command
-                let embed = CreateEmbed::new().title(&option.name).url(&url).image(&url);
+
+                // Create attachment from image and respond to command. We're downloading the image just
+                // to upload it again to discord because discord began to have issues embeding the links.
+                let attachment = CreateAttachment::url(&args.context.http, &url)
+                    .await
+                    .map_err(|e| Error::SerenityHttpRequest(Box::new(e)))?;
 
                 let response = CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new().add_embed(embed),
+                    CreateInteractionResponseMessage::new().add_file(attachment),
                 );
                 if let Err(e) = args.command.create_response(&args.context.http, response).await {
                     log::error!("Couldn't respond to command: {e}");
