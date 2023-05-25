@@ -6,7 +6,7 @@ use serenity::{
     model::prelude::{
         command::CommandOptionType,
         interaction::application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-        Role,
+        Role, RoleId,
     },
     prelude::Context,
 };
@@ -83,7 +83,7 @@ impl DiscordCommand for RoleCMD
                 let guild_roles = guild.roles;
                 let roles: String = roles
                     .into_iter()
-                    .filter_map(|role_id| guild_roles.get(&role_id))
+                    .filter_map(|role_id| guild_roles.get(&RoleId(role_id)))
                     .map(|role| &*role.name)
                     .collect::<Vec<&str>>()
                     .join(",");
@@ -93,7 +93,7 @@ impl DiscordCommand for RoleCMD
 
             "add" => {
                 let role = get_role(&option.options[0].resolved);
-                if !roles.contains(&role.id) {
+                if !roles.contains(role.id.as_u64()) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
@@ -111,7 +111,7 @@ impl DiscordCommand for RoleCMD
 
             "remove" => {
                 let role = get_role(&option.options[0].resolved);
-                if !roles.contains(&role.id) {
+                if !roles.contains(role.id.as_u64()) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 

@@ -83,7 +83,8 @@ impl Databases
                     guild_id.as_u64(),
                     crate::commands::wiki::Wiki::DEFAULT_MAX_WIKI_LEN,
                     {
-                        let assignable_roles: HashSet<RoleId> = HashSet::new();
+                        let mut assignable_roles: HashSet<RoleId> = HashSet::new();
+                        assignable_roles.insert(RoleId(0));
                         bincode::serialize(&assignable_roles).unwrap()
                     }
                 ],
