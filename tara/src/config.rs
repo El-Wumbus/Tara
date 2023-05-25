@@ -36,15 +36,19 @@ impl Configuration {
     ///
     /// # Usage
     ///
-    /// ```rust
+    /// ```no_run
+    /// # use std::path::PathBuf;
+    /// # use tara::config::Configuration;
+    /// # tokio_test::block_on(async {
     /// let file = PathBuf::from("config.toml");
-    /// let config = Configuration::from_toml(file).unwrap();
+    /// let config = Configuration::from_toml(file).await.unwrap();
     /// dbg!(config);
+    /// # });
     /// ```
     ///
     /// # Errors
     ///
-    /// Will throw and `Error` when:
+    /// Will error when:
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into a `Configuration`
@@ -79,9 +83,10 @@ impl Default for ConfigurationSecrets {
     }
 }
 
-/// Error messages parsed from the file provided in the `Configuration`.
+#[derive(Debug, Clone, PartialEq)]
+/// Error messages parsed from the file provided in the `Configuration`
 pub struct ErrorMessages {
-    pub messages: Vec<(String, String)>,
+    pub(crate) messages: Vec<(String, String)>,
 }
 
 impl ErrorMessages {
@@ -89,23 +94,26 @@ impl ErrorMessages {
     ///
     /// # Usage
     ///
-    /// ```rust
+    /// ```no_run
+    /// # use std::path::PathBuf;
+    /// # use tara::config::ErrorMessages;
+    /// # tokio_test::block_on(async {
     /// let file = PathBuf::from("config.toml");
-    /// let messages = ErrorMessages::from_json(file).unwrap();
-    /// dbg!(config);
+    /// let messages = ErrorMessages::from_json(file).await.unwrap();
+    /// dbg!(messages);
+    /// # });
     /// ```
     ///
     /// # Errors
     ///
-    /// Will throw and `Error` when:
+    /// Will error when:
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into `ErrorMessages`
     pub async fn from_json(path: impl Into<std::path::PathBuf>) -> Result<Self> {
-        pub type Root = Vec<[String; 2]>;
         let path = path.into();
         let file_contents = tokio::fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed: Root =
+        let parsed: Vec<[String; 2]> =
             serde_json::from_str(&file_contents).map_err(|e| Error::MessageParse { path, error: e })?;
 
         let messages = parsed

@@ -17,7 +17,7 @@ mod random;
 mod role;
 mod search;
 mod settings;
-pub mod wiki;
+mod wiki;
 
 macro_rules! discord_command {
     ($cmd:expr) => {
@@ -41,7 +41,7 @@ crate::commands::lazy_static! {
 
     /// Command name to `COMMANDS` index value.
     /// Every name corresponds to the index of that command.
-    pub static ref COMMAND_MAP: Arc<HashMap<String, usize>> = Arc::new({
+    static ref COMMAND_MAP: Arc<HashMap<String, usize>> = Arc::new({
         let mut map = HashMap::new();
         for (i, cmd) in COMMANDS.iter().enumerate() {
             let name = cmd.name();
@@ -54,11 +54,11 @@ crate::commands::lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct CommandArguments {
-    pub context:           Arc<Context>,
-    pub command:           Arc<CommandInteraction>,
-    pub guild:             Option<Guild>,
-    pub config:            Arc<config::Configuration>,
-    pub guild_preferences: database::Guilds,
+    context:           Arc<Context>,
+    command:           Arc<CommandInteraction>,
+    guild:             Option<Guild>,
+    config:            Arc<config::Configuration>,
+    guild_preferences: database::Guilds,
 }
 
 #[async_trait]
