@@ -94,9 +94,8 @@ pub enum Error {
 }
 
 impl Error {
-    /// Return a hex-formatted error code associated with the error
-    pub fn code(&self) -> String {
-        let n = match self {
+    const fn _code(&self) -> u8 {
+        match self {
             Error::NoDatabaseRecord => 0,
             Error::ClientInitialization(_) => 1,
             Error::Io(_) => 2,
@@ -122,10 +121,11 @@ impl Error {
             Error::DatabaseFile => 22,
             Error::ReadLine(_) => 23,
             Error::ConfigurationSave { .. } => 24,
-        };
-
-        format!("0x{n:02X}")
+        }
     }
+
+    /// Return a hex-formatted error code associated with the error
+    pub fn code(&self) -> String { format!("0x{:02X}", self._code()) }
 }
 
 impl From<rusqlite::Error> for Error {
