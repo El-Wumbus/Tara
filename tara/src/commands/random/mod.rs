@@ -5,9 +5,13 @@ use async_trait::async_trait;
 use rand::Rng;
 use serenity::{
     all::CommandOptionType,
-    builder::{CreateCommand, CreateCommandOption},
+    builder::{
+        CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
+        CreateInteractionResponseMessage,
+    },
 };
 
+use self::images::Image;
 use super::{CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 
@@ -61,8 +65,25 @@ impl DiscordCommand for Random {
         match &*option.name {
             "coin" => Ok(coin_flip()),
             "quote" => quote::random().await,
-            "cat" => images::random_cat().await,
-            "dog" => images::random_dog().await,
+            "cat" | "dog" => {
+                // Get the image url
+                let url = match &*option.name {
+                    "cat" => Image::from(images::CatImage::random().await?).link,
+                    "dog" => Image::from(images::DogImage::random().await?).link,
+                    _ => unreachable!(),
+                };
+                // Create embed and respond to command
+                let embed = CreateEmbed::new().title(&option.name).url(&url).image(&url);
+
+                let response = CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::new().add_embed(embed),
+                );
+                if let Err(e) = args.command.create_response(&args.context.http, response).await {
+                    log::error!("Couldn't respond to command: {e}");
+                }
+
+                Ok(String::new())
+            }
             "number" => {
                 let mut low = 0.0;
                 let mut high = 1_000_000.0;

@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
-pub struct Image {
-    link: String,
+pub(super) struct Image {
+    pub(super) link: String,
 }
 
 impl std::fmt::Display for Image {
@@ -19,46 +19,54 @@ impl From<CatImage> for Image {
 }
 
 /// A random image of a dog
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CatImage {
-    pub id:     String,
-    pub url:    String,
-    pub width:  i64,
-    pub height: i64,
+pub(super) struct CatImage {
+    id:     String,
+    url:    String,
+    width:  i64,
+    height: i64,
+}
+
+impl Default for CatImage {
+    fn default() -> Self {
+        Self {
+            id:     "NOT FOUND".to_string(),
+            url:    Default::default(),
+            width:  Default::default(),
+            height: Default::default(),
+        }
+    }
 }
 
 impl CatImage {
-    async fn random() -> Result<Self> {
+    pub async fn random() -> Result<Self> {
         // Request URL
-        const URL: &str = "https://api.thecatapi.com/v1/images/search";
-        pub type CatImages = Vec<CatImage>;
-
-        // Get the response
-        let response = match reqwest::get(URL).await {
-            Ok(x) => x,
-            Err(e) => return Err(Error::HttpRequest(e)),
-        };
+        const RANDOM_CAT_IMAGE_URL: &str = "https://api.thecatapi.com/v1/images/search";
+        let response = reqwest::get(RANDOM_CAT_IMAGE_URL).await?;
 
         // Parse the response
-        let image = match response.json::<CatImages>().await {
-            Ok(x) => Ok(x),
-            Err(e) => Err(Error::JsonParse(e.to_string())),
-        }?;
+        let image = response
+            .json::<Vec<CatImage>>()
+            .await
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        Ok(image.get(0).unwrap().clone())
+        image
+            .get(0)
+            .cloned()
+            .ok_or_else(|| Error::Unexpected("Server returned an empty list of results!"))
     }
 }
 
 /// A random image of a dog
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct DogImage {
+pub(super) struct DogImage {
     status:  String,
     message: String,
 }
 
 impl DogImage {
-    async fn random() -> Result<Self> {
+    pub async fn random() -> Result<Self> {
         // Request URL
         const URL: &str = "https://dog.ceo/api/breeds/image/random";
 
@@ -77,6 +85,3 @@ impl DogImage {
         Ok(image)
     }
 }
-
-pub async fn random_cat() -> Result<String> { Ok(Image::from(CatImage::random().await?).link) }
-pub async fn random_dog() -> Result<String> { Ok(Image::from(DogImage::random().await?).link) }
