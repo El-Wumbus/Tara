@@ -3,18 +3,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serenity::{
-    all::{CommandInteraction, CommandOptionType, Guild},
+    all::CommandOptionType,
     builder::{
         CreateAttachment, CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
         CreateInteractionResponseMessage,
     },
     json::Value,
-    prelude::Context,
 };
 use tokio::task;
 use truncrate::TruncateToBoundary;
 
-use super::DiscordCommand;
+use super::{CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 
 pub const COMMAND: Define = Define;
@@ -44,19 +43,12 @@ impl DiscordCommand for Define {
             .set_options(options)
     }
 
-    async fn run(
-        &self,
-        context: &Context,
-        command: &CommandInteraction,
-        _guild: Option<Guild>,
-        _config: Arc<crate::config::Configuration>,
-        databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String> {
+    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
         let (word, audio) = {
             // Get the role argument
             let mut word = String::new();
             let mut audio = false;
-            for option in &command.data.options {
+            for option in &args.command.data.options {
                 match &*option.name {
                     "word" => word = option.value.as_str().unwrap_or_default().trim().to_string(),
                     "audio" => audio = option.value.as_bool().unwrap_or(audio),
@@ -68,7 +60,8 @@ impl DiscordCommand for Define {
         };
 
         let words = get_word_definition(word.to_string()).await?;
-        let max_content_length = super::core::get_max_content_len(command, &databases)?;
+        let max_content_length =
+            super::core::get_content_character_limit(args.command.guild_id, &args.guild_preferences).await?;
 
         // Create an embed from everything
         let mut total_length = 0usize;
@@ -129,7 +122,7 @@ impl DiscordCommand for Define {
                     break;
                 }
                 attachments.push(
-                    CreateAttachment::url(&context.http, audio_url)
+                    CreateAttachment::url(&args.context.http, audio_url)
                         .await
                         .map_err(Error::SerenityHttpRequest)?,
                 );
@@ -141,7 +134,7 @@ impl DiscordCommand for Define {
                 .add_embed(embed_builder)
                 .add_files(attachments),
         );
-        if let Err(e) = command.create_response(&context.http, response).await {
+        if let Err(e) = args.command.create_response(&args.context.http, response).await {
             log::error!("Couldn't respond to command: {e}");
         }
 

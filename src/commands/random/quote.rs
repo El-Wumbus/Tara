@@ -75,10 +75,10 @@ mod tests {
     #[test]
     fn test_random_quote_display() {
         let quote = Random {
-            content:       "This is a quote".to_string(),
-            author:        "Rust Test".to_string(),
-            tags:          Vec::new(),
-            length:        17,
+            content: "This is a quote".to_string(),
+            author: "Rust Test".to_string(),
+            tags: Vec::new(),
+            length: 17,
             ..Default::default()
         };
 
@@ -88,10 +88,10 @@ mod tests {
     #[test]
     fn test_quote_display() {
         let quote = Quote::Random(Random {
-            content:       "This is a quote".to_string(),
-            author:        "Rust Test".to_string(),
-            tags:          Vec::new(),
-            length:        17,
+            content: "This is a quote".to_string(),
+            author: "Rust Test".to_string(),
+            tags: Vec::new(),
+            length: 17,
             ..Default::default()
         });
 

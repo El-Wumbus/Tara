@@ -1,18 +1,15 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, Guild},
+    all::{CommandDataOptionValue, CommandOptionType},
     builder::{
         CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
         CreateInteractionResponseMessage,
     },
-    prelude::Context,
 };
 use truncrate::TruncateToBoundary;
 
-use super::DiscordCommand;
-use crate::{config, Result};
+use super::{CommandArguments, DiscordCommand};
+use crate::Result;
 
 mod api;
 
@@ -41,20 +38,13 @@ impl DiscordCommand for Wiki {
             .set_options(options)
     }
 
-    async fn run(
-        &self,
-        context: &Context,
-        command: &CommandInteraction,
-        _guild: Option<Guild>,
-        _config: Arc<config::Configuration>,
-        databases: Arc<crate::database::Databases>,
-    ) -> Result<String> {
+    async fn run(&self, args: CommandArguments) -> Result<String> {
         use api::Page;
 
         let title = {
             // Get the role argument
             let mut title = None;
-            if let CommandDataOptionValue::String(input) = &command.data.options[0].value {
+            if let CommandDataOptionValue::String(input) = &args.command.data.options[0].value {
                 title = Some(input);
             }
             title.unwrap().trim().to_owned()
@@ -65,7 +55,8 @@ impl DiscordCommand for Wiki {
         let title = page.title.clone();
         let mut content = page.get_summary().await?;
 
-        let max = super::core::get_max_content_len(command, &databases)?;
+        let max =
+            super::core::get_content_character_limit(args.command.guild_id, &args.guild_preferences).await?;
         // Truncate wiki content.
         if content.len() >= max {
             content = format!("{}…", content.truncate_to_boundary(max));
@@ -78,7 +69,7 @@ impl DiscordCommand for Wiki {
             .url(url.to_string());
         let response =
             CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed(embed));
-        if let Err(e) = command.create_response(&context.http, response).await {
+        if let Err(e) = args.command.create_response(&args.context.http, response).await {
             log::error!("Couldn't respond to command: {e}");
         }
 

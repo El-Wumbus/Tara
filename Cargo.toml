@@ -9,7 +9,7 @@ keywords = ["discord", "discord-bot"]
 authors = ["Decator <decator.c@proton.me>"]
 
 [profile.release]
-strip = "symbols"
+strip = true
 lto = "thin"
 
 # The profile that 'cargo dist' will build with
@@ -23,29 +23,24 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.7.3"
 log = "0.4.17"
 env_logger = "0.10.0"
-thiserror = "1.0.40"
+thiserror = "1"
 lazy_static = "1.4.0"
 async-trait = "0.1.68"
 rand = "0.8.5"
 serde_json = "1.0.96"
-reqwest = { version = "0.11.16", features = ["json"]}
+reqwest = { version = "0.11.17", features = ["json"]}
 structstruck = "0.4"
 urlencoding = "2.1.2"
 truncrate = "0.1.3"
-rusqlite = "0.28.0" 
-bincode = "1.3.3"
-hex-string = "0.1.0"
-r2d2 = "0.8.2"
-r2d2_sqlite = "0.21.0"
-cached = "0.43"
 chrono = { version = "0.4.24", features = ["serde"] }
 scraper = "0.16.0"
-rustrict = { version = "0.7.4", features = ["customize"] }
-anyhow = "1.0.70"
-serde_with = { version = "2.3.1", features = ["chrono"] }
+rustrict = { version = "0.7.5", features = ["customize"] }
+anyhow = "1"
 directories = "5.0.0"
 structopt = { version = "0.3.26", features = ["color", "suggestions"] }
-rustyline = "11.0.0"
+rustyline = "11.0"
+once_cell = { version = "1.17", features = ["parking_lot"] }
+ron = "0.8"
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

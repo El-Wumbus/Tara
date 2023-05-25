@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandInteraction, CommandOptionType},
+    all::CommandOptionType,
     builder::{CreateCommand, CreateCommandOption},
-    model::{prelude::Guild, Permissions},
-    prelude::Context,
+    model::Permissions,
 };
 
-use super::DiscordCommand;
-use crate::database::Databases;
+use super::{CommandArguments, DiscordCommand};
 
 
 mod set;
@@ -88,30 +84,34 @@ impl DiscordCommand for Settings {
             .set_options(options)
     }
 
-    async fn run(
-        &self,
-        _context: &Context,
-        command: &CommandInteraction,
-        guild: Option<Guild>,
-        _config: Arc<crate::config::Configuration>,
-        _databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String> {
-        let option = &command.data.options[0];
-        let databases = Databases::open().await?;
-        let guild = guild.unwrap();
+    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+        let option = &args.command.data.options[0];
+        let guild = args.guild.unwrap();
         match &*option.name {
             "set" => {
                 let option = &super::core::suboptions(option)[0];
                 match &*option.name {
                     "maximum_content_output_chars" => {
-                        return set::maximum_content_output_chars(&databases, option, guild.id)
+                        return set::content_character_limit(&args.guild_preferences, option, guild.id).await
                     }
                     "add_self_assignable_role" => {
-                        return set::update_self_assignable_role(&databases, option, guild, false)
+                        return set::update_self_assignable_roles(
+                            &args.guild_preferences,
+                            option,
+                            guild,
+                            false,
+                        )
+                        .await
                     }
 
                     "remove_self_assignable_role" => {
-                        return set::update_self_assignable_role(&databases, option, guild, true)
+                        return set::update_self_assignable_roles(
+                            &args.guild_preferences,
+                            option,
+                            guild,
+                            true,
+                        )
+                        .await
                     }
                     _ => unreachable!(),
                 }
@@ -120,7 +120,8 @@ impl DiscordCommand for Settings {
                 let option = &super::core::suboptions(option)[0];
                 match &*option.name {
                     "maximum_content_output_chars" => {
-                        return view::maximum_content_output_chars(command, &databases);
+                        return view::content_character_limit(args.command.guild_id, &args.guild_preferences)
+                            .await;
                     }
                     _ => return Err(crate::Error::InternalLogic),
                 }

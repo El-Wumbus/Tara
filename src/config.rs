@@ -5,13 +5,10 @@ use crate::{Error, Result};
 
 /// Configurations required to host the bot
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde_with::serde_as]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
-    pub secrets:                 ConfigurationSecrets,
-    #[serde_as(as = "serde_with::DurationSeconds<i64>")]
-    pub direct_message_cooldown: Option<std::time::Duration>,
-    pub random_error_message:    ConfigurationRandomErrorMessages,
+    pub secrets:              ConfigurationSecrets,
+    pub random_error_message: ConfigurationRandomErrorMessages,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -35,8 +32,6 @@ pub enum ConfigurationRandomErrorMessages {
 }
 
 impl Configuration {
-    const DEFAULT_DM_COOLDOWN_LEN: u64 = 3;
-
     /// Read a `Configuration` from toml located at `path`.
     ///
     /// # Usage
@@ -65,9 +60,8 @@ impl Configuration {
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            secrets:                 ConfigurationSecrets::default(),
-            random_error_message:    ConfigurationRandomErrorMessages::Boolean(true),
-            direct_message_cooldown: Some(std::time::Duration::from_secs(Self::DEFAULT_DM_COOLDOWN_LEN)),
+            secrets:              ConfigurationSecrets::default(),
+            random_error_message: ConfigurationRandomErrorMessages::Boolean(true),
         }
     }
 }

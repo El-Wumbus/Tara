@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandInteraction, CommandOptionType},
+    all::CommandOptionType,
     builder::{CreateCommand, CreateCommandOption},
-    model::prelude::Guild,
-    prelude::Context,
 };
 use truncrate::TruncateToBoundary;
 
-use super::DiscordCommand;
+use super::{CommandArguments, DiscordCommand};
 use crate::Error;
 
 mod ddg;
@@ -47,15 +43,8 @@ impl DiscordCommand for Search {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    async fn run(
-        &self,
-        _context: &Context,
-        command: &CommandInteraction,
-        _guild: Option<Guild>,
-        _config: Arc<crate::config::Configuration>,
-        databases: Arc<crate::database::Databases>,
-    ) -> crate::Result<String> {
-        let option = &command.data.options[0];
+    async fn run(&self, args: CommandArguments) -> crate::Result<String> {
+        let option = &args.command.data.options[0];
         match &*option.name {
             "duckduckgo" => {
                 let mut search_term = None;
@@ -86,7 +75,9 @@ impl DiscordCommand for Search {
                 if content.is_empty() {
                     return Err(Error::NoSearchResults(search_term));
                 }
-                let max = super::core::get_max_content_len(command, &databases)?;
+                let max =
+                    super::core::get_content_character_limit(args.command.guild_id, &args.guild_preferences)
+                        .await?;
                 // Truncate content.
                 if content.len() >= max {
                     content = format!("{}…\n{url}", content.truncate_to_boundary(max));

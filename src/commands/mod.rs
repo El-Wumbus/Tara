@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use cached::proc_macro::once;
 use lazy_static::lazy_static;
 use serenity::{
     all::{CommandInteraction, Guild},
@@ -10,7 +9,7 @@ use serenity::{
     prelude::Context,
 };
 
-use crate::{config, Error, Result};
+use crate::{config, database, Error, Result};
 
 mod conversions;
 mod define;
@@ -53,20 +52,22 @@ crate::commands::lazy_static! {
     });
 }
 
+#[derive(Debug, Clone)]
+pub struct CommandArguments {
+    pub context:           Arc<Context>,
+    pub command:           Arc<CommandInteraction>,
+    pub guild:             Option<Guild>,
+    pub config:            Arc<config::Configuration>,
+    pub guild_preferences: database::Guilds,
+}
+
 #[async_trait]
 pub trait DiscordCommand {
     /// Register the discord command.
     fn register(&self) -> CreateCommand;
 
     /// Run the discord command
-    async fn run(
-        &self,
-        context: &Context,
-        command: &CommandInteraction,
-        guild: Option<Guild>,
-        config: Arc<config::Configuration>,
-        databases: Arc<crate::database::Databases>,
-    ) -> Result<String>;
+    async fn run(&self, args: CommandArguments) -> Result<String>;
 
     /// The name of the command
     fn name(&self) -> String;
@@ -81,14 +82,22 @@ pub async fn run_command(
     command: CommandInteraction,
     guild: Option<Guild>,
     config: Arc<config::Configuration>,
-    databases: Arc<crate::database::Databases>,
+    guild_preferences: database::Guilds,
     error_messages: Arc<config::ErrorMessages>,
 ) {
     let command_name = get_command_name(&command);
     if let Some(cmd) = COMMAND_MAP.get(&command_name) {
         let cmd = &COMMANDS[*cmd];
+        let context = Arc::new(context);
+        let command = Arc::new(command);
         match cmd
-            .run(&context, &command, guild, config.clone(), databases)
+            .run(CommandArguments {
+                context: context.clone(),
+                command: command.clone(),
+                guild,
+                config: config.clone(),
+                guild_preferences,
+            })
             .await
         {
             Err(e) => notify_user_of_error(e, &context.http, &command, error_messages.clone()).await,
@@ -156,14 +165,14 @@ fn pick_error_message(error_messages: &config::ErrorMessages) -> (String, String
 }
 
 pub mod core {
-    use std::collections::HashSet;
 
-    use serenity::{
-        all::{CommandDataOption, CommandDataOptionValue},
-        model::prelude::GuildId,
+    use serenity::all::{CommandDataOption, CommandDataOptionValue, GuildId};
+
+    use super::Result;
+    use crate::{
+        database::{self, GuildPreferences},
+        defaults,
     };
-
-    use super::{once, CommandInteraction, Result};
 
     pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
         let mut val = None;
@@ -175,80 +184,37 @@ pub mod core {
         val.unwrap()
     }
 
-    #[once(time = 15, result = true)]
-    pub fn get_max_content_len(
-        command: &CommandInteraction,
-        databases: &crate::database::Databases,
+    pub async fn get_content_character_limit(
+        guild_id: Option<GuildId>,
+        guild_prefs: &database::Guilds,
     ) -> Result<usize> {
         // Get the max from the guild's configuration. If we're not in a guild then we
         // use the default.
-        let max = {
-            if let Some(guild_id) = command.guild_id {
-                if !databases.contains("guilds", guild_id)? {
-                    // Insert default data
-                    databases.guilds_insert_default(guild_id)?;
-                }
-
-                let connection = databases
-                    .guilds
-                    .get()
-                    .map_err(crate::Error::DatabaseAccessTimeout)?;
-
-                let mut statement = connection
-                    .prepare(&format!(
-                        "SELECT max_content_chars FROM guilds WHERE GuildID={guild_id}"
-                    ))
-                    .map_err(crate::Error::from)?;
-                let max: u32 = statement
-                    .query_row([], |row| {
-                        let value: u32 = row.get(0).unwrap_or(super::wiki::Wiki::DEFAULT_MAX_WIKI_LEN);
-                        Ok(value)
-                    })
-                    .map_err(crate::Error::from)?;
-                max
+        if let Some(guild_id) = guild_id {
+            if !guild_prefs.contains(guild_id).await {
+                // Insert default data
+                guild_prefs.insert(GuildPreferences::default(guild_id)).await;
             }
-            else {
-                super::wiki::Wiki::DEFAULT_MAX_WIKI_LEN
-            }
-        } as usize;
-        Ok(max)
+
+            Ok(guild_prefs.get(guild_id).await.unwrap().content_character_limit)
+        }
+        else {
+            Ok(defaults::content_character_limit_default())
+        }
     }
 
-    /// Remove any suffixes found in `suffixes` from the input string.
     #[must_use]
+    /// Remove the first of any suffixes found in `suffixes` from the input string.
     pub fn strip_suffixes(input: String, suffixes: &[&str]) -> String {
         let input_bytes = input.as_bytes();
-        let mut suffix_bytes: &[u8];
+        let mut _suffix_bytes: &[u8];
 
         for suffix in suffixes {
-            suffix_bytes = suffix.as_bytes();
-            if let Some(input_without_suffix) = input_bytes.strip_suffix(suffix_bytes) {
+            if let Some(input_without_suffix) = input_bytes.strip_suffix(suffix.as_bytes()) {
                 return String::from_utf8_lossy(input_without_suffix).into_owned();
             }
         }
 
         input.to_owned()
-    }
-
-    pub fn get_role_ids(databases: &crate::database::Databases, guild_id: GuildId) -> Result<HashSet<u64>> {
-        let connection = databases
-            .guilds
-            .get()
-            .map_err(crate::Error::DatabaseAccessTimeout)?;
-
-        let mut statement = connection
-            .prepare(&format!(
-                "SELECT assignable_roles FROM guilds WHERE GuildID={guild_id}"
-            ))
-            .map_err(crate::Error::from)?;
-        let role_names = statement
-            .query_row([], |row| {
-                let bytes: Vec<u8> = row.get(0).unwrap();
-                let value: HashSet<u64> = bincode::deserialize(&bytes).unwrap();
-                Ok(value)
-            })
-            .map_err(crate::Error::from)?;
-
-        Ok(role_names)
     }
 }
