@@ -92,7 +92,7 @@ impl DiscordCommand for Help {
 }
 
 fn option_to_field(option: &CommandOption) -> (String, String, bool) {
-    let (name, mut description, z, _) = _option_to_field(&option, 0);
+    let (name, mut description, z, _) = _option_to_field(option, 0);
 
     if description.len() > 1024 {
         description = description.truncate_to_boundary(1024 - 1).to_string();
@@ -116,23 +116,23 @@ fn _option_to_field(option: &CommandOption, suboption_depth: usize) -> (String, 
             description.push_str(&format!("\n{indent}{sub_name}\n{indent}{sub_description}"));
         }
 
-        (name, description, false, suboption_depth)
-    } else {
-        let name = if option.required {
-            format!("*`{}`\\**", option.name)
-        } else {
-            format!("*`{}`*", option.name)
-        };
-
-        if !option.choices.is_empty() {
-            let choices = option
-                .choices
-                .iter()
-                .map(|x| format!("{}: `{}`", x.name, x.value))
-                .collect::<Vec<_>>()
-                .join("\n");
-            description.push_str(&format!("\n\t**Choices**:\n{choices}"));
-        }
-        (name, description, false, suboption_depth)
+        return (name, description, false, suboption_depth);
     }
+
+    let name = if option.required {
+        format!("*`{}`\\**", option.name)
+    } else {
+        format!("*`{}`*", option.name)
+    };
+
+    if !option.choices.is_empty() {
+        let choices = option
+            .choices
+            .iter()
+            .map(|x| format!("{}: `{}`", x.name, x.value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        description.push_str(&format!("\n\t**Choices**:\n{choices}"));
+    }
+    (name, description, false, suboption_depth)
 }
