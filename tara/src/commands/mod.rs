@@ -19,6 +19,7 @@ use crate::{
 mod conversions;
 mod core;
 mod define;
+mod help;
 #[cfg(feature = "music")]
 mod music;
 mod random;
@@ -47,6 +48,7 @@ lazy_static! {
             cmd!(conversions::COMMAND),
             cmd!(search::COMMAND),
             cmd!(role::COMMAND),
+            cmd!(help::COMMAND),
             #[cfg(feature = "music")]
             cmd!(music::COMMAND),
         ];
@@ -79,6 +81,10 @@ pub trait DiscordCommand {
 
     /// The name of the command
     fn name(&self) -> &'static str;
+
+    /// Additonal helpful information pertaining to usage to be displayed by the `/help`
+    /// command.
+    fn help(&self) -> Option<&'static str> { None }
 }
 
 /// Run a command specified by its name.

@@ -91,14 +91,7 @@ pub async fn scrape(search_term: &str, result_count: usize) -> Result<(Vec<Searc
             })
         })
         .enumerate()
-        .filter_map(|(i, x)| {
-            if i < result_count {
-                Some(x)
-            }
-            else {
-                None
-            }
-        })
+        .filter_map(|(i, x)| if i < result_count { Some(x) } else { None })
         .collect();
 
     Ok((results, url))

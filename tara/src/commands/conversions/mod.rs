@@ -27,7 +27,7 @@ impl DiscordCommand for Conversions {
             CreateCommandOption::new(
                 CommandOptionType::SubCommand,
                 "currency",
-                "Convert one currency to another, see GitHub for the supported currencies.",
+                "Convert one currency to another, see /help for the supported currencies.",
             )
             .add_sub_option(
                 CreateCommandOption::new(
@@ -129,4 +129,19 @@ impl DiscordCommand for Conversions {
     }
 
     fn name(&self) -> &'static str { "conversions" }
+
+    fn help(&self) -> Option<&'static str> {
+        Some(
+            r"Currency conversion supports the following currencies:
+- (`$`) U.S. Dollar [USD]
+- (`€`) Euro [EUR]
+- Canadian Dollar [CAD]
+- Russian Ruble [RUB]
+- (`¥`) Yen [JPY]
+- Austrialian Dollar [AUD]
+- Armenian Dram [AMD]
+- (`£`) Brittish Pound [GBP]
+- Pakistani rupee [PKR]",
+        )
+    }
 }

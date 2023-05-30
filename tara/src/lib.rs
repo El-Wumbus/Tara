@@ -1,3 +1,5 @@
+pub(crate) const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
+
 pub mod error;
 pub mod paths;
 pub(crate) use error::{Error, Result};

@@ -44,8 +44,7 @@ pub async fn get_content_character_limit(
         }
 
         Ok(guild_prefs.get(guild_id).await.unwrap().content_character_limit)
-    }
-    else {
+    } else {
         Ok(defaults::content_character_limit_default())
     }
 }

@@ -8,8 +8,7 @@ fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<
     let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();
     if value.is_empty() {
         Ok(None)
-    }
-    else {
+    } else {
         Ok(Some(value))
     }
 }
@@ -53,8 +52,7 @@ pub(super) async fn init() -> Result<()> {
         random_error_message.map_or(config::ConfigurationRandomErrorMessages::Boolean(false), |x| {
             if x == "default" {
                 config::ConfigurationRandomErrorMessages::Boolean(true)
-            }
-            else {
+            } else {
                 config::ConfigurationRandomErrorMessages::Path(PathBuf::from(x))
             }
         });
@@ -69,8 +67,7 @@ pub(super) async fn init() -> Result<()> {
         None => {
             if let Some(project_dirs) = paths::project_dir() {
                 project_dirs.config_dir().join("tara.toml")
-            }
-            else {
+            } else {
                 eprintln!("Couldn't get default config file location!");
                 return Err(Error::MissingConfigurationFile);
             }
@@ -111,8 +108,7 @@ pub(super) async fn init() -> Result<()> {
             .map_err(Error::Io)?;
         fs::write(&config_file_path, config).await.map_err(Error::Io)?;
         println!("Saved config to \"{}\"", config_file_path.display());
-    }
-    else {
+    } else {
         println!("Quitting...");
     }
 

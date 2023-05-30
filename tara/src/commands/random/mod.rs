@@ -118,8 +118,7 @@ fn coin_flip() -> CommandResponse {
 
     if rng.gen_bool(1.0 / 2.0) {
         CommandResponse::new_string("Heads")
-    }
-    else {
+    } else {
         CommandResponse::new_string("Tails")
     }
 }
@@ -141,8 +140,7 @@ fn random_number(low: f64, high: f64, integer: bool) -> CommandResponse {
 
     let x = if integer {
         rng.gen_range(low as i64..=high as i64).to_string()
-    }
-    else {
+    } else {
         rng.gen_range(low..=high).to_string()
     };
 

@@ -68,8 +68,7 @@ pub async fn update_self_assignable_roles(
                 "Role \"{name}\" is **not** part of the *Self-assignable roles* list"
             )));
         }
-    }
-    else {
+    } else {
         guilds
             .modify(guild.id, |preferences| {
                 let preferences = preferences.unwrap();

@@ -288,8 +288,7 @@ async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::
                     Some(file) => config::ErrorMessages::from_json(file).await.unwrap_or_default(),
                     None => config::ErrorMessages::default(),
                 }
-            }
-            else {
+            } else {
                 config::ErrorMessages::default()
             }
         }

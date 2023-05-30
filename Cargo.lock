@@ -3983,6 +3983,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "convert_case 0.6.0",
  "crossbeam-queue",
  "csv-async",
  "directories",

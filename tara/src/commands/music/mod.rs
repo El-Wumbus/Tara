@@ -232,7 +232,9 @@ async fn leave(manager: &Songbird, guild_id: GuildId) -> Result<CommandResponse>
         GUILD_CHANNEL_MAP.lock().await.remove(&uuid);
     }
 
-    Ok(CommandResponse::EphemeralString("I left your voice channel!".to_string()))
+    Ok(CommandResponse::EphemeralString(
+        "I left your voice channel!".to_string(),
+    ))
 }
 
 async fn stop(guild_id: GuildId) -> Result<CommandResponse> {

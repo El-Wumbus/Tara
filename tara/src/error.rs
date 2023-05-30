@@ -123,8 +123,7 @@ impl From<csv_async::Error> for Error {
             csv_async::ErrorKind::Io(_) => {
                 if let csv_async::ErrorKind::Io(error) = value.into_kind() {
                     Error::Io(error)
-                }
-                else {
+                } else {
                     panic!()
                 }
             }

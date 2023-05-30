@@ -8,7 +8,11 @@ use serenity::{
     all::{ChannelId, CommandInteraction, GuildId, UserId},
     client::Cache,
 };
-use tokio::{fs::{File, self}, sync::Mutex, time};
+use tokio::{
+    fs::{self, File},
+    sync::Mutex,
+    time,
+};
 
 use crate::Result;
 

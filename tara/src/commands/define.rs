@@ -70,8 +70,7 @@ impl DiscordCommand for Define {
         // let phonetic_audio = word.phonetics.iter().filter_map(|phonetic| phonetic.audio)
         let title = if let Some(phonetic_text) = phonetic_text {
             format!("{} ({phonetic_text})", &word.word)
-        }
-        else {
+        } else {
             word.word.clone()
         };
         let mut embed_builder: CreateEmbed = CreateEmbed::new().title(title);
@@ -203,8 +202,7 @@ async fn get_word_definition(word: String) -> Result<Words> {
                 task::spawn_blocking(move || serde_json::from_str::<NoWord>(&http_body)).await?;
             if missing_word.is_err() {
                 Err(Error::JsonParse(e.to_string()))
-            }
-            else {
+            } else {
                 Err(Error::UndefinedWord(format!(
                     "\"{}\" was not found: {}",
                     &word,
