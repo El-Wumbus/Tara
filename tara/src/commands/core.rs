@@ -64,6 +64,19 @@ pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
     input.to_string()
 }
 
+pub fn ends_with_any<'a>(s: &str, possible_suffixes: &'a [&'a str]) -> bool {
+    possible_suffixes
+        .into_iter()
+        .map(|x| s.ends_with(x))
+        .filter(|x| *x)
+        .next()
+        .is_some()
+}
+
+pub fn equals_any<'a>(s: &str, possible_matches: &'a [&'a str]) -> bool {
+    possible_matches.into_iter().filter(|x| **x == s).next().is_some()
+}
+
 #[derive(Debug, Clone)]
 pub enum CommandResponse {
     String(String),
