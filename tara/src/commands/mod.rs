@@ -84,7 +84,7 @@ pub trait DiscordCommand {
 
     /// Additonal helpful information pertaining to usage to be displayed by the `/help`
     /// command.
-    fn help(&self) -> Option<&'static str> { None }
+    fn help(&self) -> Option<String> { None }
 }
 
 /// Run a command specified by its name.

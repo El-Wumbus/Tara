@@ -110,7 +110,6 @@ impl DiscordCommand for Conversions {
                     CommandDataOptionValue::String(output),
                 ) = (&options[0].value, &options[1].value) else { return Err(Error::InternalLogic) };
                 let input = input.trim().to_lowercase();
-                let output = output.trim().to_lowercase();
 
                 let converter = match CURRENCY_CONVERTER.lock().await.clone() {
                     Some(x) => x,
@@ -130,18 +129,10 @@ impl DiscordCommand for Conversions {
 
     fn name(&self) -> &'static str { "conversions" }
 
-    fn help(&self) -> Option<&'static str> {
-        Some(
-            r"Currency conversion supports the following currencies:
-- (`$`) U.S. Dollar [USD]
-- (`€`) Euro [EUR]
-- Canadian Dollar [CAD]
-- Russian Ruble [RUB]
-- (`¥`) Yen [JPY]
-- Austrialian Dollar [AUD]
-- Armenian Dram [AMD]
-- (`£`) Brittish Pound [GBP]
-- Pakistani rupee [PKR]",
-        )
+    fn help(&self) -> Option<String> {
+        Some(format!(
+            "Currency conversion supports the following currencies:\n{}",
+            currency::SUPPORTED_CURRENCIES.as_str()
+        ))
     }
 }
