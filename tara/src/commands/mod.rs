@@ -7,14 +7,10 @@ use serenity::{
     builder::CreateCommand,
     prelude::Context,
 };
+use tara_util::logging::CommandLogger;
 use tracing::info;
 
-use crate::{
-    commands::core::CommandResponse,
-    config, database,
-    logging::{CommandLogger, LoggedCommandEvent},
-    Result,
-};
+use crate::{commands::core::CommandResponse, config, database, logging, Result};
 
 mod conversions;
 mod core;
@@ -97,7 +93,7 @@ pub async fn run_command(
     error_messages: Arc<config::ErrorMessages>,
     logger: CommandLogger,
 ) {
-    let command_event = LoggedCommandEvent::from_command_interaction(&context.cache, &command);
+    let command_event = logging::logged_command_event_from_interaction(&context.cache, &command);
     logger.enqueue(command_event).await;
     let command_name = command.data.name.as_str();
 
@@ -153,6 +149,5 @@ pub async fn run_command(
 /// Randomly select an error message pre/postfix
 fn pick_error_message(error_messages: &config::ErrorMessages) -> &(String, String) {
     use rand::seq::SliceRandom;
-    // TODO: Don't panic here!
     error_messages.messages.choose(&mut rand::thread_rng()).unwrap()
 }

@@ -1,8 +1,6 @@
 use serenity::{
     all::{CommandDataOption, CommandDataOptionValue, CommandInteraction, GuildId},
-    builder::{
-        CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
-    },
+    builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
 };
 use tracing::{event, Level};
@@ -24,7 +22,7 @@ pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
     let mut val = None;
     match &option.value {
         CommandDataOptionValue::SubCommand(options) | CommandDataOptionValue::SubCommandGroup(options) => {
-            val = Some(options)
+            val = Some(options);
         }
         _ => (),
     }
@@ -65,34 +63,23 @@ pub fn strip_suffixes(input: &str, suffixes: &[&str]) -> String {
 }
 
 pub fn ends_with_any<'a>(s: &str, possible_suffixes: &'a [&'a str]) -> bool {
-    possible_suffixes
-        .into_iter()
-        .map(|x| s.ends_with(x))
-        .filter(|x| *x)
-        .next()
-        .is_some()
+    possible_suffixes.iter().any(|x| s.ends_with(x))
 }
 
 pub fn equals_any<'a>(s: &str, possible_matches: &'a [&'a str]) -> bool {
-    possible_matches.into_iter().filter(|x| **x == s).next().is_some()
+    possible_matches.iter().any(|x| *x == s)
 }
 
 #[derive(Debug, Clone)]
 pub enum CommandResponse {
     String(String),
-    EditString(String),
     EphemeralString(String),
     Embed(Box<CreateEmbed>),
-    EditEmbed(Box<CreateEmbed>),
-    EditResponse(Box<EditInteractionResponse>),
     Message(CreateInteractionResponseMessage),
-    None,
 }
 
 impl CommandResponse {
     pub fn new_string(s: impl Into<String>) -> Self { Self::from(s.into()) }
-
-    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
 
     pub async fn send(self, command: &CommandInteraction, http: &Http) {
         let message = CreateInteractionResponseMessage::new();
@@ -101,26 +88,6 @@ impl CommandResponse {
             CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
             CommandResponse::Embed(embed) => message.embed(*embed),
             CommandResponse::Message(message) => message,
-            CommandResponse::None => return,
-            CommandResponse::EditString(_)
-            | CommandResponse::EditResponse(_)
-            | CommandResponse::EditEmbed(_) => {
-                let edit = match self {
-                    CommandResponse::EditString(s) => EditInteractionResponse::new().content(s),
-                    CommandResponse::EditEmbed(embed) => EditInteractionResponse::new().embed(*embed),
-                    CommandResponse::EditResponse(r) => *r,
-                    _ => unreachable!(),
-                };
-
-                if let Err(e) = command.edit_response(http, edit).await {
-                    event!(
-                        Level::ERROR,
-                        "Couldn't edit response to command ({}): {e}",
-                        command.data.name.as_str()
-                    );
-                }
-                return;
-            }
         };
         let response = CreateInteractionResponse::Message(response_message);
         if let Err(e) = command.create_response(http, response).await {

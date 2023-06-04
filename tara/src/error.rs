@@ -102,9 +102,6 @@ pub enum Error {
     #[error("UndefinedWordError: {0}")]
     UndefinedWord(String),
 
-    #[error("CSV Serialization error: {0}")]
-    CsvSerailization(String),
-
     #[cfg(feature = "music")]
     #[error("Error joining voice channel: {0}")]
     JoinVoiceChannel(Box<songbird::error::JoinError>),
@@ -115,21 +112,6 @@ pub enum Error {
 
     #[error("SerenityError(backend framework): {0}")]
     SerenityErr(Box<serenity::Error>),
-}
-
-impl From<csv_async::Error> for Error {
-    fn from(value: csv_async::Error) -> Self {
-        match value.kind() {
-            csv_async::ErrorKind::Io(_) => {
-                if let csv_async::ErrorKind::Io(error) = value.into_kind() {
-                    Error::Io(error)
-                } else {
-                    panic!()
-                }
-            }
-            _ => Error::CsvSerailization(value.to_string()),
-        }
-    }
 }
 
 impl From<io::Error> for Error {
@@ -175,7 +157,6 @@ impl Error {
             Error::SerenityHttpRequest(_) => 25,
             Error::JoinError(_) => 26,
             Error::UndefinedWord(_) => 27,
-            Error::CsvSerailization(_) => 28,
             #[cfg(feature = "music")]
             Error::JoinVoiceChannel(_) => 29,
             #[cfg(feature = "music")]
@@ -185,6 +166,7 @@ impl Error {
     }
 
     /// Return a hex-formatted error code associated with the error
+    #[must_use]
     pub fn code(&self) -> String { format!("0x{:02X}", self._code()) }
 }
 

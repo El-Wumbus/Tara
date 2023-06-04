@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use rustyline::{history::FileHistory, Editor};
-use tara::{config, error::*, paths};
+use tara_util::paths;
 use tokio::fs;
+
+use crate::{config, error::*};
 
 fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>> {
     let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();
@@ -65,8 +67,8 @@ pub(super) async fn init() -> Result<()> {
     let config_file_path = match config_file_path {
         Some(x) => PathBuf::from(x),
         None => {
-            if let Some(project_dirs) = paths::project_dir() {
-                project_dirs.config_dir().join("tara.toml")
+            if let Some(path) = paths::TARA_CONFIGURATION_FILE.as_ref() {
+                path.clone()
             } else {
                 eprintln!("Couldn't get default config file location!");
                 return Err(Error::MissingConfigurationFile);

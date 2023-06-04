@@ -1,7 +1,6 @@
 #![feature(const_trait_impl, stmt_expr_attributes)]
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
-use once_cell::sync::Lazy;
 use serenity::{
     all::{Command, Guild, Interaction, Ready},
     async_trait, client,
@@ -13,19 +12,25 @@ use structopt::{
     clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands},
     StructOpt,
 };
-use tara::{
-    commands, config,
-    database::{self, GuildPreferences},
-    error::Error,
-    logging, paths,
-};
+use tara_util::{ipc as ipcutil,logging as logutil, paths};
 use tokio::task;
 use tracing::{debug, error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 
+mod error;
+pub use error::{Error, Result};
+
+use crate::ipc::ActionReceiver;
+mod commands;
+mod config;
+mod database;
+mod defaults;
 mod init;
+mod ipc;
+mod logging;
 
 const NAME: &str = "Tara";
+const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
 
 /// Discord gateway intents
 const INTENTS: GatewayIntents = GatewayIntents::GUILD_MESSAGES
@@ -34,13 +39,6 @@ const INTENTS: GatewayIntents = GatewayIntents::GUILD_MESSAGES
     .union(GatewayIntents::MESSAGE_CONTENT)
     .union(GatewayIntents::GUILDS)
     .union(GatewayIntents::GUILD_VOICE_STATES);
-
-static COMMAND_LOG_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    paths::project_dir().unwrap().data_dir().join(format!(
-        "command-log_{}.csv",
-        chrono::Utc::now().format("%Y-%m-%d_%H:%M")
-    ))
-});
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = NAME, about, author)]
@@ -142,12 +140,15 @@ async fn daemon(
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(filter))
         .init();
-    info!("Initialized Logging");
 
     // Get the configuration file path and read the configuration from it.
     let config_path = match config_path {
         Some(x) => x,
-        None => paths::config_file_path()?,
+        None => {
+            paths::TARA_CONFIGURATION_FILE
+                .clone()
+                .ok_or(Error::MissingConfigurationFile)?
+        }
     };
     let config = Arc::new(config::Configuration::from_toml(&config_path).await?);
     debug!("Loaded configuration from \"{}\"", config_path.display());
@@ -160,7 +161,7 @@ async fn daemon(
         Ok(x) => x,
     };
 
-    let logger = logging::CommandLogger::new();
+    let logger = logutil::CommandLogger::new();
 
     let mut client = build_client(
         config.secrets.token.clone(),
@@ -175,17 +176,31 @@ async fn daemon(
 
     task::spawn(async move {
         let logger = logger.clone();
-        if let Err(e) = logger.log_to_file(COMMAND_LOG_PATH.as_path()).await {
-            error!("LOGGING ERORR: {e}");
+        if let Err(e) = logger.log_to_file(paths::TARA_COMMAND_LOG_PATH.as_path()).await {
+            error!("LOGGING: {e}");
         };
     });
+    info!("Initialized command logger");
+
+    let receiver = Arc::new(ActionReceiver {});
+
+    task::spawn(async move {
+        let receiver = receiver.clone();
+        if let Err(e) = ipcutil::start_server(receiver.as_ref()).await {
+            error!("IPC: {e}")
+        };
+    });
+    info!("Initialized IPC server");
 
     let _ = client.start().await.map_err(|why| error!("Error: {:?}", why));
 
     Ok(())
 }
 
-async fn build_client(token: impl AsRef<str>, event_handler: EventHandler) -> Result<Client, anyhow::Error> {
+async fn build_client(
+    token: impl AsRef<str>,
+    event_handler: EventHandler,
+) -> std::result::Result<Client, anyhow::Error> {
     #[cfg(feature = "music")]
     use {reqwest::Client as HttpClient, songbird::SerenityInit, tara::HttpKey};
 
@@ -210,7 +225,7 @@ async fn build_client(token: impl AsRef<str>, event_handler: EventHandler) -> Re
 struct EventHandler {
     config:         Arc<config::Configuration>,
     error_messages: Arc<config::ErrorMessages>,
-    logger:         logging::CommandLogger,
+    logger:         logutil::CommandLogger,
     guilds:         database::Guilds,
 }
 
@@ -258,7 +273,9 @@ impl client::EventHandler for EventHandler {
         for guild_id in guilds {
             if self.guilds.contains(guild_id).await {
                 // Insert the guild
-                self.guilds.insert(GuildPreferences::default(guild_id)).await;
+                self.guilds
+                    .insert(database::GuildPreferences::default(guild_id))
+                    .await;
             }
         }
         if let Err(e) = self.guilds.save().await {
@@ -284,7 +301,7 @@ async fn load_error_messages(config: Arc<config::Configuration>) -> Arc<config::
             if *x {
                 // Load from the default location, if not possible fall back to the default
                 // messages.
-                match paths::error_messages_file_path() {
+                match paths::ERROR_MESSAGES_FILE.as_ref() {
                     Some(file) => config::ErrorMessages::from_json(file).await.unwrap_or_default(),
                     None => config::ErrorMessages::default(),
                 }

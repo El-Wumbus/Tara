@@ -112,7 +112,7 @@ fn _option_to_field(option: &CommandOption, suboption_depth: usize) -> (String, 
         for suboption in &option.options {
             let (sub_name, sub_description, _, suboption_depth) =
                 _option_to_field(suboption, suboption_depth + 1);
-            let indent = "    ".repeat(suboption_depth);
+            let indent = "  ".repeat(suboption_depth);
             description.push_str(&format!("\n{indent}{sub_name}\n{indent}{sub_description}"));
         }
 

@@ -118,11 +118,15 @@ impl ErrorMessages {
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into `ErrorMessages`
-    pub async fn from_json(path: impl Into<std::path::PathBuf>) -> Result<Self> {
-        let path = path.into();
+    pub async fn from_json(path: impl AsRef<std::path::Path>) -> Result<Self> {
+        let path = path.as_ref();
         let file_contents = tokio::fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed: Vec<[String; 2]> =
-            serde_json::from_str(&file_contents).map_err(|e| Error::MessageParse { path, error: e })?;
+        let parsed: Vec<[String; 2]> = serde_json::from_str(&file_contents).map_err(|e| {
+            Error::MessageParse {
+                path:  path.into(),
+                error: e,
+            }
+        })?;
 
         let messages = parsed
             .into_iter()

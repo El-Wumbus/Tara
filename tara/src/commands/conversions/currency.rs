@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use chrono::{DateTime, Duration, Utc};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -178,7 +180,7 @@ macro_rules! make_currency_structures {
             pub fn from_str(s: &str) -> Result<Self> {
                 let s = s.trim().to_lowercase();
                 match s {
-                    $(_ if equals_any(&s, &$allowed_suffixes) => {
+                    $(_ if equals_any(&s, $allowed_suffixes) => {
                         Ok(Self::$currency)
                     })*
                     _ => Err(Error::CommandMisuse("Error: Invalid target currency".to_string())),
@@ -192,8 +194,8 @@ macro_rules! make_currency_structures {
                 let currency;
 
                 match &s {
-                $(_ if ends_with_any(&s, &$allowed_suffixes) || optionally_starts_with(&s, $prefix) => {
-                        s = strip_suffixes(&s, &$allowed_suffixes);
+                $(_ if ends_with_any(&s, $allowed_suffixes) || optionally_starts_with(&s, $prefix) => {
+                        s = strip_suffixes(&s, $allowed_suffixes);
                         if let Some(prefix) = $prefix {
                             s = s.strip_prefix(prefix).unwrap_or(&s).to_string();
                         }
@@ -217,47 +219,40 @@ macro_rules! make_currency_structures {
                     currency,
                     value,
                 })
-                    }
-                }
+            }
+        }
 
     };
 }
 
-#[inline(always)]
-fn optionally_starts_with(s: &str, c: Option<char>) -> bool {
-    c.and_then(|c| Some(s.starts_with(c))).unwrap_or(false)
-}
+#[inline]
+fn optionally_starts_with(s: &str, c: Option<char>) -> bool { c.map_or(false, |c| s.starts_with(c)) }
 
 make_currency_structures!(
-    (EUR, "Euro(s) [EUR]", Some('€'), vec!["eur", "euro", "euros"]),
-    (
-        USD,
-        "US Dollar [USD]",
-        Some('$'),
-        vec!["usd", "dollar", "dollars"]
-    ),
-    (CAD, "Canadian Dollar [CAD]", None::<char>, vec!["cad"]),
+    (EUR, "Euro(s) [EUR]", Some('€'), &["eur", "euro", "euros"]),
+    (USD, "US Dollar [USD]", Some('$'), &["usd", "dollar", "dollars"]),
+    (CAD, "Canadian Dollar [CAD]", None::<char>, &["cad"]),
     (
         RUB,
         "Russian Ruble [RUB]",
         None::<char>,
-        vec!["rub", "ruble", "rubles"]
+        &["rub", "ruble", "rubles"]
     ),
-    (JPY, "Yen [JPY]", Some('¥'), vec!["jpy", "yen",]),
-    (AUD, "Austrialian Dollar [AUD]", None::<char>, vec!["aud"]),
-    (AMD, "Armenian Dram [AMD]", None::<char>, vec!["amd", "dram"]),
-    (PKR, "Pakistani rupee [PKR]", None::<char>, vec!["pkr"]),
+    (JPY, "Yen [JPY]", Some('¥'), &["jpy", "yen",]),
+    (AUD, "Austrialian Dollar [AUD]", None::<char>, &["aud"]),
+    (AMD, "Armenian Dram [AMD]", None::<char>, &["amd", "dram"]),
+    (PKR, "Pakistani rupee [PKR]", None::<char>, &["pkr"]),
     (
         GBP,
         "Brittish Pound [GBP]",
         Some('£'),
-        vec!["gbp", "quid", "pound", "pounds", "sterling"]
+        &["gbp", "quid", "pound", "pounds", "sterling"]
     ),
     (
         CNY,
         "Chinese Yuan Renminbi [CNY]",
         None::<char>,
-        vec!["cny", "renminbi", "yuán", "yuan"]
+        &["cny", "renminbi", "yuán", "yuan"]
     )
 );
 

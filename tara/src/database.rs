@@ -24,16 +24,25 @@ use serenity::{
     http::Http,
     model::prelude::{GuildId, RoleId},
 };
+use tara_util::paths::TARA_DATABASE_DIR;
 use tokio::{
     fs::{self, File},
     sync::RwLock,
     task,
 };
 
-use crate::{defaults, error::Result};
+use crate::{
+    defaults,
+    error::{Error, Result},
+};
 
-static DATABASE_DIR: Lazy<PathBuf> = Lazy::new(|| crate::paths::database_directory().unwrap());
-static GUILD_PREFERENCES_PATH: Lazy<PathBuf> = Lazy::new(|| DATABASE_DIR.join("GuildPreferences.ron"));
+static GUILD_PREFERENCES_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    TARA_DATABASE_DIR
+        .as_ref()
+        .ok_or(Error::DatabaseFile)
+        .unwrap()
+        .join("GuildPreferences.ron")
+});
 
 
 #[derive(Debug, Clone)]
@@ -120,9 +129,7 @@ impl Guilds {
     pub async fn contains(&self, id: GuildId) -> bool { self.0.read().await.contains_key(&id) }
 
     pub async fn get(&self, id: GuildId) -> Option<GuildPreferences> {
-        self.0.read().await.get(&id).map(std::clone::Clone::clone) // TODO: don't clone,
-                                                                   // it
-                                                                   // sucks!!!
+        self.0.read().await.get(&id).map(std::clone::Clone::clone)
     }
 
     async fn read() -> Result<HashMap<GuildId, GuildPreferences>> {
