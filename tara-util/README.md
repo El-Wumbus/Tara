@@ -1,1 +1,0 @@
-A utility library that is needed to perform IPC with Tara. It contains the paths for Tara's configuration files aswell.
