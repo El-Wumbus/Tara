@@ -23,6 +23,8 @@ pub struct ConfigurationSecrets {
 
     /// API key for access to `currencyapi.com`
     pub currency_api_key: Option<String>,
+
+    pub omdb_api_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -87,6 +89,7 @@ impl Default for ConfigurationSecrets {
         Self {
             token:            Self::DEFAULT_DISCORD_TOKEN.to_string(),
             currency_api_key: None,
+            omdb_api_key:     None,
         }
     }
 }

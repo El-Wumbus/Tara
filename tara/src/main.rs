@@ -12,7 +12,7 @@ use structopt::{
     clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands},
     StructOpt,
 };
-use tara_util::{ipc as ipcutil,logging as logutil, paths};
+use tara_util::{ipc as ipcutil, logging as logutil, paths};
 use tokio::task;
 use tracing::{debug, error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};

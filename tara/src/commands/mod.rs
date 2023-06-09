@@ -16,6 +16,7 @@ mod conversions;
 mod core;
 mod define;
 mod help;
+mod movie;
 #[cfg(feature = "music")]
 mod music;
 mod random;
@@ -45,6 +46,7 @@ lazy_static! {
             cmd!(search::COMMAND),
             cmd!(role::COMMAND),
             cmd!(help::COMMAND),
+            cmd!(movie::COMMAND),
             #[cfg(feature = "music")]
             cmd!(music::COMMAND),
         ];

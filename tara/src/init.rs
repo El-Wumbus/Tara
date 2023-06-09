@@ -81,6 +81,7 @@ pub(super) async fn init() -> Result<()> {
         secrets:              config::ConfigurationSecrets {
             token:            token.clone(),
             currency_api_key: currency_api_key.clone(),
+            omdb_api_key:     None,
         },
         random_error_message: random_error_message.clone(),
         music:                Some(Default::default()),
