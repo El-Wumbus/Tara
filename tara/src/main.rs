@@ -113,6 +113,17 @@ impl From<LogLevel> for LevelFilter {
     }
 }
 
+#[cfg(feature = "music")]
+pub use reqwest::Client as HttpClient;
+
+#[cfg(feature = "music")]
+/// Used to insert a [`reqwest::Client`] into the [`serenity::prelude::Context`].
+pub struct HttpKey;
+
+#[cfg(feature = "music")]
+impl serenity::prelude::TypeMapKey for HttpKey {
+    type Value = HttpClient;
+}
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), anyhow::Error> {
@@ -202,7 +213,7 @@ async fn build_client(
     event_handler: EventHandler,
 ) -> std::result::Result<Client, anyhow::Error> {
     #[cfg(feature = "music")]
-    use {reqwest::Client as HttpClient, songbird::SerenityInit, tara::HttpKey};
+    use songbird::SerenityInit;
 
     // Initialize && start client
     let client_builder = Client::builder(token, INTENTS).event_handler(event_handler);

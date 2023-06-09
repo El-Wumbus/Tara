@@ -70,12 +70,14 @@ pub fn equals_any<'a>(s: &str, possible_matches: &'a [&'a str]) -> bool {
     possible_matches.iter().any(|x| *x == s)
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum CommandResponse {
     String(String),
     EphemeralString(String),
     Embed(Box<CreateEmbed>),
     Message(CreateInteractionResponseMessage),
+    None,
 }
 
 impl CommandResponse {
@@ -88,6 +90,7 @@ impl CommandResponse {
             CommandResponse::EphemeralString(s) => message.content(s).ephemeral(true),
             CommandResponse::Embed(embed) => message.embed(*embed),
             CommandResponse::Message(message) => message,
+            CommandResponse::None => return,
         };
         let response = CreateInteractionResponse::Message(response_message);
         if let Err(e) = command.create_response(http, response).await {
