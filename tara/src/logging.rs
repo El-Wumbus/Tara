@@ -1,6 +1,6 @@
 use chrono::Utc;
 use serenity::{all::CommandInteraction, client::Cache};
-use tara_util::logging::*;
+use tara_util::logging::LoggedCommandEvent;
 
 pub fn logged_command_event_from_interaction(
     cache: &impl AsRef<Cache>,

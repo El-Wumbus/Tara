@@ -1,17 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
 use serenity::{
-    all::{ChannelId, CommandInteraction, CommandOptionType, ComponentInteraction, MessageId, ReactionType},
+    all::{CommandInteraction, CommandOptionType},
     builder::{
-        CreateActionRow, CreateButton, CreateCommand, CreateCommandOption, CreateEmbed,
-        CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
+        CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage,
+        EditInteractionResponse,
     },
-    client::Cache,
-    http::Http,
 };
-use tokio::sync::Mutex;
 use truncrate::TruncateToBoundary;
 
 use super::{common::unsplash, CommandArguments, CommandResponse, DiscordCommand};
@@ -21,18 +17,9 @@ use crate::{
 };
 
 mod ddg;
+mod image;
 
 pub const COMMAND: Search = Search;
-
-#[allow(clippy::type_complexity)]
-static IMAGE_RESULTS: Lazy<
-    Arc<
-        Mutex<
-            HashMap<(ChannelId, MessageId), (Vec<unsplash::UnsplashImage>, usize, Arc<CommandInteraction>)>,
-        >,
-    >,
-> = Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
-
 
 #[derive(Clone, Copy, Debug)]
 pub struct Search;
@@ -116,8 +103,8 @@ impl DiscordCommand for Search {
                     for option in super::common::suboptions(option) {
                         match &*option.name {
                             "query" => query = option.value.as_str().unwrap(),
-                            "color" => color = option.value.as_str().map(|x| x.to_string()),
-                            "orientation" => orientation = option.value.as_str().map(|x| x.to_string()),
+                            "color" => color = option.value.as_str().map(ToString::to_string),
+                            "orientation" => orientation = option.value.as_str().map(ToString::to_string),
                             _ => unreachable!("How did {} get given to my bot?!", &option.name),
                         }
                     }
@@ -144,25 +131,19 @@ impl DiscordCommand for Search {
                     .await?;
 
                 let message = command.get_response(&args.context.http).await?;
-                let id = format!("{}/{}", command.channel_id, message.id);
-
-
-                let components = vec![CreateActionRow::Buttons(vec![
-                    CreateButton::new(format!("{id}-prev")).emoji(ReactionType::Unicode(String::from("⬅️"))),
-                    CreateButton::new(format!("{id}-next"))
-                        .emoji(ReactionType::Unicode(String::from("➡️")))
-                        .label(format!("Next (1/{})", images.len())),
-                ])];
+                let umid = (command.channel_id, message.id);
+                let id = format!("{}-{}", command.channel_id, message.id);
+                let components = image::button_components(&id, 0, images.len(), false);
 
                 // Finally send the buttons
                 command
                     .edit_response(
                         &args.context.http,
-                        EditInteractionResponse::new().components(components),
+                        EditInteractionResponse::new().components(components.clone()),
                     )
                     .await?;
 
-                IMAGE_RESULTS
+                image::IMAGE_RESULTS
                     .lock()
                     .await
                     .insert((command.channel_id, message.id), (images, 0, command.clone()));
@@ -170,17 +151,26 @@ impl DiscordCommand for Search {
                 args.component_map
                     .insert(
                         format!("{id}-next"),
-                        ComponentFn::new(next_handler),
-                        Some(CleanupFn::new(buttons_cleanup_handler)),
+                        ComponentFn::new(|args| image::button_handler(args, |x| x + 1)),
+                        Some(CleanupFn::new(image::buttons_cleanup_handler)),
                     )
                     .await;
                 args.component_map
                     .insert(
                         format!("{id}-prev"),
-                        ComponentFn::new(prev_handler),
-                        Some(CleanupFn::new(buttons_cleanup_handler)),
+                        ComponentFn::new(|args| image::button_handler(args, |x| x - 1)),
+                        Some(CleanupFn::new(image::buttons_cleanup_handler)),
                     )
                     .await;
+
+                let mut users_lock = image::USERS.lock().await;
+                if let Some((previous_channel_id, previous_message_id)) =
+                    users_lock.insert(command.user.id, umid)
+                {
+                    let id = format!("{previous_channel_id}-{previous_message_id}");
+                    args.component_map.timeout(format!("{id}-next")).await;
+                    args.component_map.timeout(format!("{id}-prev")).await;
+                }
 
 
                 Ok(CommandResponse::None)
@@ -246,85 +236,4 @@ Valid arguments for Color filtering:
 - `blue`"#;
         Some(String::from(s))
     }
-}
-
-async fn next_handler(args: (ComponentInteraction, CommandArguments)) -> Result<()> {
-    button_handler(args, |x| x + 1).await
-}
-
-async fn prev_handler(args: (ComponentInteraction, CommandArguments)) -> Result<()> {
-    button_handler(args, |x| x - 1).await
-}
-
-async fn button_handler(args: (ComponentInteraction, CommandArguments), f: fn(isize) -> isize) -> Result<()> {
-    let (component, args) = args;
-    let mut lock = IMAGE_RESULTS.lock().await;
-    let (imgs, mut i, _) = lock.get(&(component.channel_id, component.message.id)).unwrap();
-    let mut x = f(i as isize);
-
-    if x >= imgs.len() as isize {
-        x = 0;
-    } else if x < 0 {
-        x = imgs.len() as isize - 1 as isize;
-    }
-    i = x as usize;
-
-    let id = format!("{}/{}", component.channel_id, component.message.id);
-    let components = vec![CreateActionRow::Buttons(vec![
-        CreateButton::new(format!("{id}-prev")).emoji(ReactionType::Unicode(String::from("⬅️"))),
-        CreateButton::new(format!("{id}-next"))
-            .emoji(ReactionType::Unicode(String::from("➡️")))
-            .label(format!("Next ({}/{})", i + 1, imgs.len())),
-    ])];
-
-    let image = imgs.get(i).unwrap();
-    let embed: CreateEmbed = image.into();
-    component
-        .create_response(
-            &args.context.http,
-            CreateInteractionResponse::UpdateMessage(
-                CreateInteractionResponseMessage::new()
-                    .embed(embed)
-                    .components(components),
-            ),
-        )
-        .await?;
-
-    let (_, ref mut n, _) = lock
-        .get_mut(&(component.channel_id, component.message.id))
-        .unwrap();
-    *n = i;
-
-    Ok(())
-}
-
-async fn buttons_cleanup_handler(args: (String, Arc<Http>, Arc<Cache>)) -> Result<()> {
-    let x = args
-        .0
-        .split('/')
-        .map(|x| x.trim().parse::<u64>().unwrap())
-        .collect::<Vec<_>>();
-
-    if let Some((imgs, i, command)) = IMAGE_RESULTS
-        .lock()
-        .await
-        .remove(&(ChannelId::new(x[0]), MessageId::new(x[1])))
-    {
-        let message = command.get_response(&args.1).await?;
-        let id = format!("{}/{}", command.channel_id, message.id);
-        let components = vec![CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("{id}-prev"))
-                .emoji(ReactionType::Unicode(String::from("⬅️")))
-                .disabled(true),
-            CreateButton::new(format!("{id}-next"))
-                .emoji(ReactionType::Unicode(String::from("➡️")))
-                .disabled(true)
-                .label(format!("Next ({}/{})", i + 1, imgs.len())),
-        ])];
-
-        command
-            .edit_response(&args.1, EditInteractionResponse::new().components(components))
-            .await?;
-    }
-    Ok(())
 }

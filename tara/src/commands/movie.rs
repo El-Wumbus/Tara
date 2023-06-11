@@ -58,16 +58,19 @@ impl DiscordCommand for Movie {
         };
 
         let api_key = {
-            match args.config.secrets.omdb_api_key.as_ref() {
-                Some(key) => key.as_str(),
-                None => {
-                    const OMDB_API_KEYS: &[&str] = &[
-                        "4b447405", "eb0c0475", "7776cbde", "ff28f90b", "6c3a2d45", "b07b58c8", "ad04b643",
-                        "a95b5205", "777d9323", "2c2c3314", "b5cff164", "89a9f57d", "73a9858a", "efbd8357",
-                    ];
-                    OMDB_API_KEYS.choose(&mut thread_rng()).unwrap()
-                }
-            }
+            let choose_default_key = || {
+                const OMDB_API_KEYS: &[&str] = &[
+                    "4b447405", "eb0c0475", "7776cbde", "ff28f90b", "6c3a2d45", "b07b58c8", "ad04b643",
+                    "a95b5205", "777d9323", "2c2c3314", "b5cff164", "89a9f57d", "73a9858a", "efbd8357",
+                ];
+                *OMDB_API_KEYS.choose(&mut thread_rng()).unwrap()
+            };
+
+            args.config
+                .secrets
+                .omdb_api_key
+                .as_ref()
+                .map_or_else(choose_default_key, String::as_str)
         };
 
         let movie = OmdbMovie::from_title(api_key, title, year, full_plot).await?;
@@ -88,7 +91,7 @@ struct OmdbRating {
     pub value:  String,
 }
 
-/// Movie metadata from OMDbz
+/// Movie metadata from `OMDb`
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OmdbMovie {
@@ -152,7 +155,7 @@ struct OmdbErrorResponse {
 }
 
 impl OmdbMovie {
-    /// Perform a title request from OMDb
+    /// Perform a title request from `OMDb`
     pub async fn from_title(
         omdb_api_key: &str,
         title: &str,

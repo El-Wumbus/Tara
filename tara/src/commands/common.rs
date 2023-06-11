@@ -140,52 +140,65 @@ pub mod unsplash {
 
     const UNSPLASH_REFFERAL_QUERY: &str = "utm_source=Tara&utm_medium=referral";
 
-
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     #[non_exhaustive]
-    pub struct Urls {
-        pub raw:  Option<String>,
-        pub full: String,
+    struct Urls {
+        raw:     Option<String>,
+        full:    String,
+        regular: String,
+        small:   String,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     #[non_exhaustive]
-    pub struct User {
-        pub id:            String,
-        pub username:      String,
-        pub name:          Option<String>,
+    struct User {
+        id:            String,
+        username:      String,
+        name:          Option<String>,
         #[serde(rename = "profile_image")]
-        pub profile_image: ProfileImage,
+        profile_image: ProfileImage,
     }
 
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct Links {
+        #[serde(rename = "self")]
+        self_field:        String,
+        html:              String,
+        // Don't use
+        download:          String,
+        // Use
+        download_location: String,
+    }
+
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     #[non_exhaustive]
-    pub struct ProfileImage {
-        pub full:    Option<String>,
-        pub large:   Option<String>,
-        pub regular: Option<String>,
-        pub medium:  Option<String>,
-        pub small:   Option<String>,
-        pub thumb:   Option<String>,
+    struct ProfileImage {
+        full:    Option<String>,
+        large:   Option<String>,
+        regular: Option<String>,
+        medium:  Option<String>,
+        small:   Option<String>,
+        thumb:   Option<String>,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     #[non_exhaustive]
     pub struct UnsplashImage {
-        pub id:            String,
-        pub width:         i64,
-        pub height:        i64,
-        pub color:         String,
-        pub description:   Option<String>,
-        pub urls:          Urls,
-        pub user:          User,
+        id:            String,
+        width:         i64,
+        height:        i64,
+        links:         Links,
+        color:         String,
+        description:   Option<String>,
+        urls:          Urls,
+        user:          User,
         #[serde(rename = "public_domain")]
-        pub public_domain: Option<bool>,
+        public_domain: Option<bool>,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -231,11 +244,14 @@ pub mod unsplash {
 
     impl From<&UnsplashImage> for CreateEmbed {
         fn from(value: &UnsplashImage) -> Self {
-            let mut image = Url::from_str(&value.urls.full).unwrap();
-            let image_query = image.query().map_or(String::from(UNSPLASH_REFFERAL_QUERY), |x| {
-                format!("{x}&{UNSPLASH_REFFERAL_QUERY}")
-            });
-            image.set_query(Some(&image_query));
+            let image = {
+                let mut image = Url::from_str(&value.urls.regular).unwrap();
+                let image_query = image.query().map_or(String::from(UNSPLASH_REFFERAL_QUERY), |x| {
+                    format!("{x}&{UNSPLASH_REFFERAL_QUERY}")
+                });
+                image.set_query(Some(&image_query));
+                image
+            };
 
             let color = {
                 let (r, g, b) = hex_color_code_to_rgb(&value.color).unwrap();

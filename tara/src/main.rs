@@ -126,7 +126,7 @@ impl serenity::prelude::TypeMapKey for HttpKey {
     type Value = HttpClient;
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> std::result::Result<(), anyhow::Error> {
     match Options::from_args() {
         Options::Daemon { config, log_level } => daemon(config, log_level).await?,
@@ -200,7 +200,7 @@ async fn daemon(
     task::spawn(async move {
         let receiver = receiver.clone();
         if let Err(e) = ipcutil::start_server(receiver.as_ref()).await {
-            error!("IPC: {e}")
+            error!("IPC: {e}");
         };
     });
     info!("Initialized IPC server");

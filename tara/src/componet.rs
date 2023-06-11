@@ -2,7 +2,7 @@ use std::{collections::HashMap, future::Future, sync::Arc};
 
 use chrono::{DateTime, Duration, Utc};
 use serenity::{all::ComponentInteraction, client::Cache, futures::future::BoxFuture, http::Http};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{commands::CommandArguments, Result};
 
@@ -11,6 +11,7 @@ pub struct AsyncFn<Params, Returns> {
 }
 
 impl<P: 'static, R> AsyncFn<P, R> {
+    #[inline]
     pub fn new<F>(f: fn(P) -> F) -> AsyncFn<P, R>
     where
         F: Future<Output = R> + Send + 'static,
@@ -20,6 +21,17 @@ impl<P: 'static, R> AsyncFn<P, R> {
         }
     }
 
+    /// Run an asyncronous function pointer
+    ///
+    /// ```
+    /// # tokio_test::block_on(async {
+    /// async fn watch_happy_feet(x: usize) -> usize { x * 10 }
+    /// # let func = AsyncFn::new(watch_happy_feet, None);
+    /// let result = func.run(9).await;
+    /// assert_eq!(result, 90usize);
+    /// # });
+    /// ```
+    #[inline]
     pub(super) async fn run(&self, params: P) -> R { (self.func)(params).await }
 }
 
@@ -31,6 +43,7 @@ type CustomId = String;
 
 struct ComponentInner {
     component_map: RwLock<HashMap<CustomId, (ComponentFn, Option<CleanupFn>)>>,
+    // It's a hashmap because we want the IDs to be unique and have these times associated.
     timeout_map:   RwLock<HashMap<CustomId, DateTime<Utc>>>,
 }
 
@@ -65,28 +78,47 @@ impl ComponentInner {
 
 #[derive(Clone)]
 pub struct ComponentMap {
-    inner: Arc<ComponentInner>,
+    inner:         Arc<ComponentInner>,
+    early_timeout: Arc<Mutex<Vec<CustomId>>>,
 }
 
 impl ComponentMap {
     pub(super) fn new() -> Self {
         Self {
-            inner: Arc::new(ComponentInner::new()),
+            inner:         Arc::new(ComponentInner::new()),
+            early_timeout: Arc::new(Mutex::new(Vec::new())),
         }
     }
+
+    // Timeout an id before it's scheduled time.
+    pub(super) async fn timeout(&self, id: CustomId) { self.early_timeout.lock().await.push(id); }
 
     pub(super) async fn timeout_watcher(&self, http: Arc<Http>, cache: Arc<Cache>) -> Result<()> {
         loop {
             let now = Utc::now();
-            for (id, time) in self.inner.timeout_map.read().await.iter() {
-                if *time <= now {
-                    if let Some((_, Some(cleanup))) = self.inner.component_map.write().await.remove(id) {
-                        cleanup.run((id.clone(), http.clone(), cache.clone())).await?;
-                    }
+
+            let kill_list = {
+                let timeout_map = self.inner.timeout_map.read().await;
+                let mut kill_list = timeout_map
+                    .iter()
+                    .filter(|(_, time)| **time <= now)
+                    .map(|(id, _)| id.clone()) // So the read lock gets dropped when this is done collecting
+                    .collect::<Vec<_>>();
+
+                let mut early_timeout_lock = self.early_timeout.lock().await;
+                kill_list.append(&mut early_timeout_lock);
+
+                kill_list
+            };
+
+            for id in kill_list {
+                if let Some((_, Some(cleanup))) = self.inner.component_map.write().await.remove(&id) {
+                    cleanup.run((id.clone(), http.clone(), cache.clone())).await?;
                 }
+                let _ = self.inner.timeout_map.write().await.remove(&id);
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     }
 

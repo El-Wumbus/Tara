@@ -228,6 +228,7 @@ impl GuildPreferences {
     pub fn _all_assignable_discord_role_ids(&self) -> Vec<RoleId> {
         self.assignable_roles
             .iter()
+            .copied()
             .map(SelfAssignableRole::id)
             .collect::<Vec<_>>()
     }
@@ -246,5 +247,5 @@ impl SelfAssignableRole {
     pub fn new(id: RoleId) -> Self { Self(id) }
 
     #[must_use]
-    pub const fn id(&self) -> RoleId { self.0 }
+    pub const fn id(self) -> RoleId { self.0 }
 }
