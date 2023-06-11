@@ -24,6 +24,7 @@ mod role;
 mod search;
 mod settings;
 mod wiki;
+mod series;
 
 type Command = &'static (dyn DiscordCommand + Sync + Send);
 
@@ -47,6 +48,7 @@ lazy_static! {
             cmd!(role::COMMAND),
             cmd!(help::COMMAND),
             cmd!(movie::COMMAND),
+            cmd!(series::COMMAND),
             #[cfg(feature = "music")]
             cmd!(music::COMMAND),
         ];

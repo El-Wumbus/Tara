@@ -1,34 +1,33 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use rand::prelude::*;
+use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use serenity::{
     all::{CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter},
 };
 
-use super::{common::CommandResponse, CommandArguments, DiscordCommand};
+use super::{
+    common::CommandResponse,
+    movie::{OmdbErrorResponse, OmdbRating},
+    CommandArguments, DiscordCommand,
+};
 use crate::{Error, Result};
-pub const COMMAND: Movie = Movie;
+pub const COMMAND: Series = Series;
 
-pub(super) const OMDB_API_KEYS: &[&str] = &[
-    "4b447405", "eb0c0475", "7776cbde", "ff28f90b", "6c3a2d45", "b07b58c8", "ad04b643", "a95b5205",
-    "777d9323", "2c2c3314", "b5cff164", "89a9f57d", "73a9858a", "efbd8357",
-];
-
-pub struct Movie;
+pub struct Series;
 
 #[async_trait]
-impl DiscordCommand for Movie {
+impl DiscordCommand for Series {
     fn register(&self) -> CreateCommand {
         let options = vec![
-            CreateCommandOption::new(CommandOptionType::String, "title", "The title of the movie")
+            CreateCommandOption::new(CommandOptionType::String, "title", "The title of the series")
                 .required(true),
             CreateCommandOption::new(
                 CommandOptionType::Integer,
                 "year",
-                "The Year in which the movie released",
+                "The Year in which the TV series started",
             )
             .required(false),
             CreateCommandOption::new(
@@ -36,34 +35,42 @@ impl DiscordCommand for Movie {
                 "full",
                 "Respond with a fuller description of the plot (false by default)",
             ),
+            CreateCommandOption::new(
+                CommandOptionType::Boolean,
+                "episode",
+                "Find for a specific episode",
+            )
+            .required(false),
         ];
 
         CreateCommand::new(self.name())
-            .description("Get information about a movie")
+            .description("Get information about a TV series")
             .dm_permission(true)
             .set_options(options)
     }
 
     async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
-        let (title, year, full_plot) = {
+        let (title, year, full_plot, episode) = {
             // Get the role argument
             let mut title = "";
             let mut year = None;
             let mut full_plot = false;
+            let mut episode = false;
             for option in &command.data.options {
                 match &*option.name {
                     "title" => title = option.value.as_str().ok_or(Error::InternalLogic)?,
                     "year" => year = option.value.as_i64().map(|int| int.to_string()),
                     "full" => full_plot = option.value.as_bool().unwrap_or_default(),
+                    "episode" => episode = option.value.as_bool().unwrap_or_default(),
                     _ => return Err(Error::InternalLogic),
                 }
             }
 
-            (title, year, full_plot)
+            (title, year, full_plot, episode)
         };
 
         let api_key = {
-            let choose_default_key = || *OMDB_API_KEYS.choose(&mut thread_rng()).unwrap();
+            let choose_default_key = || *super::movie::OMDB_API_KEYS.choose(&mut thread_rng()).unwrap();
 
             args.config
                 .secrets
@@ -72,66 +79,58 @@ impl DiscordCommand for Movie {
                 .map_or_else(choose_default_key, String::as_str)
         };
 
-        let movie = OmdbMovie::movie(api_key, title, year, full_plot).await?;
-        let embed: CreateEmbed = movie.into();
+        let series = OmdbSeries::series(api_key, title, year, full_plot, episode).await?;
+        let embed: CreateEmbed = series.into();
 
         Ok(CommandResponse::Embed(Box::new(embed)))
     }
 
-    fn name(&self) -> &'static str { "movie" }
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct OmdbRating {
-    #[serde(rename = "Source")]
-    pub source: String,
-    #[serde(rename = "Value")]
-    pub value:  String,
+    fn name(&self) -> &'static str { "series" }
 }
 
 /// Movie metadata from `OMDb`
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct OmdbMovie {
+pub(super) struct OmdbSeries {
     #[serde(rename = "Title")]
-    title:       String,
+    title:         String,
     #[serde(rename = "Year")]
-    year:        String,
+    year:          String,
     #[serde(rename = "Rated")]
-    rated:       String,
+    rated:         String,
     #[serde(rename = "Released")]
-    released:    String,
+    released:      String,
     #[serde(rename = "Runtime")]
-    runtime:     String,
+    runtime:       String,
     #[serde(rename = "Genre")]
-    genre:       String,
+    genre:         String,
     #[serde(rename = "Director")]
-    director:    String,
+    director:      String,
     #[serde(rename = "Writer")]
-    writer:      String,
+    writer:        String,
     #[serde(rename = "Actors")]
-    actors:      String,
+    actors:        String,
     #[serde(rename = "Plot")]
-    plot:        String,
+    plot:          String,
     #[serde(rename = "Language")]
-    language:    String,
+    language:      String,
     #[serde(rename = "Country")]
-    country:     String,
+    country:       String,
     #[serde(rename = "Awards")]
-    awards:      String,
+    awards:        String,
     #[serde(rename = "Poster")]
-    poster:      String,
+    poster:        String,
     #[serde(rename = "Ratings")]
-    ratings:     Vec<OmdbRating>,
+    ratings:       Vec<OmdbRating>,
     #[serde(rename = "Metascore")]
-    metascore:   String,
-    imdb_rating: String,
-    imdb_votes:  String,
+    metascore:     String,
+    imdb_rating:   String,
+    imdb_votes:    String,
     #[serde(rename = "imdbID")]
-    imdb_id:     String,
+    imdb_id:       String,
     #[serde(rename = "Type")]
-    type_field:  String,
+    type_field:    String,
+    total_seasons: String,
     // #[serde(rename = "DVD")]
     // dvd:         Option<String>,
     // #[serde(rename = "BoxOffice")]
@@ -144,27 +143,50 @@ struct OmdbMovie {
     // response:    String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct OmdbErrorResponse {
-    #[serde(rename = "Response")]
-    pub response: String,
-    #[serde(rename = "Error")]
-    pub error:    String,
+impl From<OmdbSeries> for CreateEmbed {
+    fn from(value: OmdbSeries) -> Self {
+        let description = format!("{}", value.plot);
+        let runtime = humantime::format_duration(Duration::from_secs(
+            60 * value
+                .runtime
+                .split(' ')
+                .next()
+                .unwrap_or("0")
+                .parse::<u64>()
+                .unwrap(),
+        ))
+        .to_string();
+
+        CreateEmbed::new()
+            .title(format!("{} ({})", value.title, value.year))
+            .image(value.poster)
+            .description(description)
+            .field("TV Rating", value.rated, true)
+            .field("Director", value.director, true)
+            .field("Writer", value.writer, true)
+            .field("Starring", value.actors, true)
+            .field("Genre", value.genre, true)
+            .field("Runtime", runtime, true)
+            .field("Seasons", value.total_seasons, true)
+            .field("Ratings", format!("IMDb:{}", value.imdb_rating), true)
+            .footer(CreateEmbedFooter::new(format!("IMDb ID: {}", value.imdb_id)))
+    }
 }
 
-impl OmdbMovie {
-    /// Perform a title request from `OMDb`
-    pub async fn movie(
+
+impl OmdbSeries {
+    pub async fn series(
         omdb_api_key: &str,
         title: &str,
         year: Option<String>,
         full_plot: bool,
+        episode: bool,
     ) -> Result<Self> {
         let year = year.map_or_else(String::new, |year| format!("&y={year}"));
         let plot = if full_plot { "&plot=full" } else { "" };
+        let kind = if episode { "episode" } else { "series" };
         let url = format!(
-            "http://www.omdbapi.com/?t={}{year}{plot}&apikey={omdb_api_key}&type=movie",
+            "http://www.omdbapi.com/?t={}{year}{plot}&apikey={omdb_api_key}&type={kind}",
             urlencoding::encode(title)
         );
 
@@ -184,45 +206,5 @@ impl OmdbMovie {
         }
 
         Ok(movie)
-    }
-}
-
-impl From<OmdbMovie> for CreateEmbed {
-    fn from(value: OmdbMovie) -> Self {
-        let description = format!("{}", value.plot);
-        let rotten_tomatoes = {
-            let rating = value.ratings.iter().find(|x| x.source == "Rotten Tomatoes");
-            rating.map_or("N/A", |rating| &rating.value)
-        };
-        let runtime = humantime::format_duration(Duration::from_secs(
-            60 * value
-                .runtime
-                .split(' ')
-                .next()
-                .unwrap_or("0")
-                .parse::<u64>()
-                .unwrap(),
-        ))
-        .to_string();
-
-        CreateEmbed::new()
-            .title(format!("{} ({})", value.title, value.year))
-            .image(value.poster)
-            .description(description)
-            .field("MPAA Rating", value.rated, true)
-            .field("Director", value.director, true)
-            .field("Writer", value.writer, true)
-            .field("Starring", value.actors, true)
-            .field("Genre", value.genre, true)
-            .field("Runtime", runtime, true)
-            .field(
-                "Ratings",
-                format!(
-                    "Metascore: {}\nIMDb:{}\nRotten Tomatoes: {rotten_tomatoes}",
-                    value.metascore, value.imdb_rating
-                ),
-                true,
-            )
-            .footer(CreateEmbedFooter::new(format!("IMDb ID: {}", value.imdb_id)))
     }
 }
