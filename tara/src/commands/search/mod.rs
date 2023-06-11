@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use serenity::{
-    all::{ChannelId, CommandInteraction, CommandOptionType, ComponentInteraction, ReactionType, UserId},
+    all::{ChannelId, CommandInteraction, CommandOptionType, ComponentInteraction, MessageId, ReactionType},
     builder::{
         CreateActionRow, CreateButton, CreateCommand, CreateCommandOption, CreateEmbed,
         CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
@@ -26,7 +26,11 @@ pub const COMMAND: Search = Search;
 
 #[allow(clippy::type_complexity)]
 static IMAGE_RESULTS: Lazy<
-    Arc<Mutex<HashMap<(ChannelId, UserId), (Vec<unsplash::UnsplashImage>, usize, Arc<CommandInteraction>)>>>,
+    Arc<
+        Mutex<
+            HashMap<(ChannelId, MessageId), (Vec<unsplash::UnsplashImage>, usize, Arc<CommandInteraction>)>,
+        >,
+    >,
 > = Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 
@@ -124,23 +128,45 @@ impl DiscordCommand for Search {
                 let Some(api_key) = args.config.secrets.unsplash_key.as_ref()
                     else {return Err(Error::FeatureDisabled("Unsplash images have been disabled".to_string()))};
                 let images = unsplash::UnsplashImage::search(api_key, query, color, orientation).await?;
-                IMAGE_RESULTS.lock().await.insert(
-                    (command.channel_id, command.user.id),
-                    (images, 0, command.clone()),
-                );
 
-                let lock = IMAGE_RESULTS.lock().await;
-                let (images, i, _) = lock
-                    .get(&(command.channel_id, command.user.id))
+                let image = images
+                    .get(0)
                     .ok_or(Error::NoSearchResults(format!("No search results for {query}!")))?;
 
-                let id = format!("{}-{}", command.channel_id, command.user.id);
+                // Initially create the response because we need the MessageId for a unique identifier.
+                command
+                    .create_response(
+                        &args.context.http,
+                        CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::new().embed(image.into()),
+                        ),
+                    )
+                    .await?;
+
+                let message = command.get_response(&args.context.http).await?;
+                let id = format!("{}/{}", command.channel_id, message.id);
+
+
                 let components = vec![CreateActionRow::Buttons(vec![
                     CreateButton::new(format!("{id}-prev")).emoji(ReactionType::Unicode(String::from("⬅️"))),
                     CreateButton::new(format!("{id}-next"))
                         .emoji(ReactionType::Unicode(String::from("➡️")))
-                        .label(format!("Next ({}/{})", i + 1, images.len())),
+                        .label(format!("Next (1/{})", images.len())),
                 ])];
+
+                // Finally send the buttons
+                command
+                    .edit_response(
+                        &args.context.http,
+                        EditInteractionResponse::new().components(components),
+                    )
+                    .await?;
+
+                IMAGE_RESULTS
+                    .lock()
+                    .await
+                    .insert((command.channel_id, message.id), (images, 0, command.clone()));
+
                 args.component_map
                     .insert(
                         format!("{id}-next"),
@@ -156,14 +182,8 @@ impl DiscordCommand for Search {
                     )
                     .await;
 
-                let image = images
-                    .get(*i)
-                    .ok_or(Error::NoSearchResults(format!("No search results for {query}!")))?;
 
-                Ok(CommandResponse::EmbedWithComponents(
-                    Box::new(image.into()),
-                    components,
-                ))
+                Ok(CommandResponse::None)
             }
 
             "duckduckgo" => {
@@ -239,7 +259,7 @@ async fn prev_handler(args: (ComponentInteraction, CommandArguments)) -> Result<
 async fn button_handler(args: (ComponentInteraction, CommandArguments), f: fn(isize) -> isize) -> Result<()> {
     let (component, args) = args;
     let mut lock = IMAGE_RESULTS.lock().await;
-    let (imgs, mut i, _) = lock.get(&(component.channel_id, component.user.id)).unwrap();
+    let (imgs, mut i, _) = lock.get(&(component.channel_id, component.message.id)).unwrap();
     let mut x = f(i as isize);
 
     if x >= imgs.len() as isize {
@@ -249,7 +269,7 @@ async fn button_handler(args: (ComponentInteraction, CommandArguments), f: fn(is
     }
     i = x as usize;
 
-    let id = format!("{}-{}", component.channel_id, component.user.id);
+    let id = format!("{}/{}", component.channel_id, component.message.id);
     let components = vec![CreateActionRow::Buttons(vec![
         CreateButton::new(format!("{id}-prev")).emoji(ReactionType::Unicode(String::from("⬅️"))),
         CreateButton::new(format!("{id}-next"))
@@ -270,24 +290,28 @@ async fn button_handler(args: (ComponentInteraction, CommandArguments), f: fn(is
         )
         .await?;
 
-    let (_, ref mut n, _) = lock.get_mut(&(component.channel_id, component.user.id)).unwrap();
+    let (_, ref mut n, _) = lock
+        .get_mut(&(component.channel_id, component.message.id))
+        .unwrap();
     *n = i;
 
     Ok(())
 }
 
 async fn buttons_cleanup_handler(args: (String, Arc<Http>, Arc<Cache>)) -> Result<()> {
-    let x = args.0.split('-').collect::<Vec<_>>()[0..2]
-        .iter()
+    let x = args
+        .0
+        .split('/')
         .map(|x| x.parse::<u64>().unwrap())
         .collect::<Vec<_>>();
 
     if let Some((imgs, i, command)) = IMAGE_RESULTS
         .lock()
         .await
-        .remove(&(ChannelId::new(x[0]), UserId::new(x[1])))
+        .remove(&(ChannelId::new(x[0]), MessageId::new(x[1])))
     {
-        let id = format!("{}-{}", command.channel_id, command.user.id);
+        let message = command.get_response(&args.1).await?;
+        let id = format!("{}/{}", command.channel_id, message.id);
         let components = vec![CreateActionRow::Buttons(vec![
             CreateButton::new(format!("{id}-prev"))
                 .emoji(ReactionType::Unicode(String::from("⬅️")))
