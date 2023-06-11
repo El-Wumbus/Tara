@@ -194,16 +194,22 @@ impl From<OmdbMovie> for CreateEmbed {
             let rating = value.ratings.iter().find(|x| x.source == "Rotten Tomatoes");
             rating.map_or("N/A", |rating| &rating.value)
         };
-        let runtime = humantime::format_duration(Duration::from_secs(
-            60 * value
-                .runtime
-                .split(' ')
-                .next()
-                .unwrap_or("0")
-                .parse::<u64>()
-                .unwrap(),
-        ))
-        .to_string();
+
+        let runtime = match &*value.runtime {
+            "N/A" => value.runtime.clone(),
+            _ => {
+                humantime::format_duration(Duration::from_secs(
+                    60 * value
+                        .runtime
+                        .split(' ')
+                        .next()
+                        .unwrap_or("0")
+                        .parse::<u64>()
+                        .unwrap(),
+                ))
+                .to_string()
+            }
+        };
 
         CreateEmbed::new()
             .title(format!("{} ({})", value.title, value.year))
