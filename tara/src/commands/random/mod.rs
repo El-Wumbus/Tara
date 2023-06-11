@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use serenity::{
     all::{CommandInteraction, CommandOptionType},
     builder::{
@@ -27,16 +28,17 @@ pub struct Random;
 #[async_trait]
 impl DiscordCommand for Random {
     fn register(&self) -> CreateCommand {
-        let options = vec![
-            CreateCommandOption::new(CommandOptionType::SubCommand, "image", "Get a random image"),
-            CreateCommandOption::new(CommandOptionType::SubCommand, "coin", "Flip a coin"),
-            CreateCommandOption::new(
-                CommandOptionType::SubCommand,
-                "quote",
-                "Request a random quote from the internet",
-            ),
-            CreateCommandOption::new(CommandOptionType::SubCommand, "dog", "Get a random dog photo"),
-            CreateCommandOption::new(CommandOptionType::SubCommand, "cat", "Get a random cat photo"),
+        let image = CreateCommandOption::new(CommandOptionType::SubCommand, "image", "Get a random image");
+        let coin = CreateCommandOption::new(CommandOptionType::SubCommand, "coin", "Flip a coin");
+        let quote = CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "quote",
+            "Request a random quote from the internet",
+        );
+        let dog = CreateCommandOption::new(CommandOptionType::SubCommand, "dog", "Get a random dog photo");
+        let cat = CreateCommandOption::new(CommandOptionType::SubCommand, "cat", "Get a random cat photo");
+        let fact = CreateCommandOption::new(CommandOptionType::SubCommand, "fact", "Get a random fun fact");
+        let number =
             CreateCommandOption::new(CommandOptionType::SubCommand, "number", "Random Number Generator")
                 .add_sub_option(
                     CreateCommandOption::new(CommandOptionType::Number, "low", "The low bound, inclusive")
@@ -53,8 +55,9 @@ impl DiscordCommand for Random {
                         "Generate an integer (whole number) instead of a float (decimal)",
                     )
                     .required(false),
-                ),
-        ];
+                );
+
+        let options = vec![image, coin, quote, dog, cat, number, fact];
 
         CreateCommand::new(self.name())
             .description("Define an english word")
@@ -112,6 +115,7 @@ impl DiscordCommand for Random {
 
                 Ok(CommandResponse::Embed(Box::new(embed)))
             }
+            "fact" => random_fact().await,
             _ => Err(Error::InternalLogic),
         }
     }
@@ -158,4 +162,26 @@ fn random_number(low: f64, high: f64, integer: bool) -> CommandResponse {
     };
 
     CommandResponse::String(x)
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Fact {
+    id:         String,
+    text:       String,
+    source:     String,
+    source_url: String,
+    language:   String,
+    permalink:  String,
+}
+
+impl Fact {
+    async fn random() -> Result<Self> {
+        const URL: &str = "https://uselessfacts.jsph.pl/api/v2/facts/random";
+        Ok(reqwest::get(URL).await?.json::<Self>().await?)
+    }
+}
+
+async fn random_fact() -> Result<CommandResponse> {
+    let fact = Fact::random().await?;
+    Ok(fact.text.into())
 }
