@@ -4,7 +4,10 @@ use rustyline::{history::FileHistory, Editor};
 use tara_util::paths;
 use tokio::fs;
 
-use crate::{config, error::{Error, Result}};
+use crate::{
+    config,
+    error::{Error, Result},
+};
 
 fn get_optional_value(rl: &mut Editor<(), FileHistory>, prompt: &str) -> Result<Option<String>> {
     let value = rl.readline(prompt).map_err(Error::ReadLine)?.trim().to_owned();

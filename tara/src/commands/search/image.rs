@@ -33,6 +33,14 @@ pub(super) async fn button_handler(
     f: fn(isize) -> isize,
 ) -> Result<()> {
     let (component, args) = args;
+    if let Some((channel_id, message_id)) = USERS.lock().await.get(&component.user.id).copied() {
+        if channel_id != component.channel_id || message_id != component.message.id {
+            // Do nothing because this user didn't start this interaction and shouldn't be able to
+            // interfere with the others.
+            return Ok(());
+        }
+    }
+
     let mut lock = IMAGE_RESULTS.lock().await;
     let (imgs, mut i, _) = lock.get(&(component.channel_id, component.message.id)).unwrap();
     let mut x = f(i as isize);
