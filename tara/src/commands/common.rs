@@ -231,7 +231,7 @@ pub mod unsplash {
 
     impl From<&UnsplashImage> for CreateEmbed {
         fn from(value: &UnsplashImage) -> Self {
-            let mut image = Url::from_str(value.urls.raw.as_ref().unwrap_or(&value.urls.full)).unwrap();
+            let mut image = Url::from_str(&value.urls.full).unwrap();
             let image_query = image.query().map_or(String::from(UNSPLASH_REFFERAL_QUERY), |x| {
                 format!("{x}&{UNSPLASH_REFFERAL_QUERY}")
             });

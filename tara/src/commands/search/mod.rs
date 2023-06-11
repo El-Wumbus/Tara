@@ -302,7 +302,7 @@ async fn buttons_cleanup_handler(args: (String, Arc<Http>, Arc<Cache>)) -> Resul
     let x = args
         .0
         .split('/')
-        .map(|x| x.parse::<u64>().unwrap())
+        .map(|x| x.trim().parse::<u64>().unwrap())
         .collect::<Vec<_>>();
 
     if let Some((imgs, i, command)) = IMAGE_RESULTS
