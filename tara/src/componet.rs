@@ -44,14 +44,14 @@ type CustomId = String;
 struct ComponentInner {
     component_map: RwLock<HashMap<CustomId, (ComponentFn, Option<CleanupFn>)>>,
     // It's a hashmap because we want the IDs to be unique and have these times associated.
-    timeout_map:   RwLock<HashMap<CustomId, DateTime<Utc>>>,
+    timeout_map:   Mutex<HashMap<CustomId, DateTime<Utc>>>,
 }
 
 impl ComponentInner {
     fn new() -> Self {
         Self {
             component_map: RwLock::new(HashMap::new()),
-            timeout_map:   RwLock::new(HashMap::new()),
+            timeout_map:   Mutex::new(HashMap::new()),
         }
     }
 
@@ -59,7 +59,7 @@ impl ComponentInner {
         let _ = self.component_map.write().await.insert(id.clone(), (f, cf));
         let _ = self
             .timeout_map
-            .write()
+            .lock()
             .await
             .insert(id, Utc::now() + Duration::minutes(10));
     }
@@ -78,35 +78,32 @@ impl ComponentInner {
 
 #[derive(Clone)]
 pub struct ComponentMap {
-    inner:         Arc<ComponentInner>,
-    early_timeout: Arc<Mutex<Vec<CustomId>>>,
+    inner: Arc<ComponentInner>,
 }
 
 impl ComponentMap {
     pub(super) fn new() -> Self {
         Self {
-            inner:         Arc::new(ComponentInner::new()),
-            early_timeout: Arc::new(Mutex::new(Vec::new())),
+            inner: Arc::new(ComponentInner::new()),
         }
     }
 
     // Timeout an id before it's scheduled time.
-    pub(super) async fn timeout(&self, id: CustomId) { self.early_timeout.lock().await.push(id); }
+    pub(super) async fn timeout(&self, id: CustomId) {
+        let _ = self.inner.timeout_map.lock().await.insert(id, Utc::now());
+    }
 
     pub(super) async fn timeout_watcher(&self, http: Arc<Http>, cache: Arc<Cache>) -> Result<()> {
         loop {
             let now = Utc::now();
 
             let kill_list = {
-                let timeout_map = self.inner.timeout_map.read().await;
-                let mut kill_list = timeout_map
+                let timeout_map = self.inner.timeout_map.lock().await;
+                let kill_list = timeout_map
                     .iter()
                     .filter(|(_, time)| **time <= now)
-                    .map(|(id, _)| id.clone()) // So the read lock gets dropped when this is done collecting
+                    .map(|(id, _)| id.clone()) // So the lock gets dropped when this is done collecting
                     .collect::<Vec<_>>();
-
-                let mut early_timeout_lock = self.early_timeout.lock().await;
-                kill_list.append(&mut early_timeout_lock);
 
                 kill_list
             };
@@ -115,7 +112,7 @@ impl ComponentMap {
                 if let Some((_, Some(cleanup))) = self.inner.component_map.write().await.remove(&id) {
                     cleanup.run((id.clone(), http.clone(), cache.clone())).await?;
                 }
-                let _ = self.inner.timeout_map.write().await.remove(&id);
+                let _ = self.inner.timeout_map.lock().await.remove(&id);
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
