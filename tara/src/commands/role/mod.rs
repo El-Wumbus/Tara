@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandOptionType},
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
 };
 
@@ -43,8 +45,8 @@ impl DiscordCommand for Role {
     }
 
     /// Run the discord command
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
-        let option = &args.command.data.options[0];
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
+        let option = &command.data.options[0];
         let guild = args.guild.ok_or_else(|| Error::InternalLogic)?;
         let prefs = args
             .guild_preferences
@@ -69,7 +71,7 @@ impl DiscordCommand for Role {
 
             "add" => {
                 let role = {
-                    let CommandDataOptionValue::Role(role_id) = super::core::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
+                    let CommandDataOptionValue::Role(role_id) = super::common::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
                     guild.roles.get(&role_id).unwrap()
                 };
                 if !roles.iter().any(|x| x.id.eq(&role.id)) {
@@ -77,7 +79,7 @@ impl DiscordCommand for Role {
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = args.command.member.clone().unwrap();
+                let mut member = command.member.clone().unwrap();
 
                 // Add role
                 member
@@ -90,7 +92,7 @@ impl DiscordCommand for Role {
 
             "remove" => {
                 let role = {
-                    let CommandDataOptionValue::Role(role_id) = super::core::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
+                    let CommandDataOptionValue::Role(role_id) = super::common::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
                     guild.roles.get(&role_id).unwrap()
                 };
 
@@ -99,7 +101,7 @@ impl DiscordCommand for Role {
                 }
 
                 // We can unwrap because this command only runs in DM
-                let mut member = args.command.member.clone().unwrap();
+                let mut member = command.member.clone().unwrap();
 
                 // Remove role
                 member

@@ -3,13 +3,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use serenity::{
-    all::{CommandOption, CommandOptionType},
+    all::{CommandInteraction, CommandOption, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter},
 };
 use tokio::sync::RwLock;
 use truncrate::TruncateToBoundary;
 
-use super::{core::CommandResponse, CommandArguments, DiscordCommand, COMMANDS};
+use super::{common::CommandResponse, CommandArguments, DiscordCommand, COMMANDS};
 use crate::{Error, Result};
 
 pub const COMMAND: Help = Help;
@@ -47,8 +47,7 @@ impl DiscordCommand for Help {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
-        let command = args.command;
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
         let command_name = command.data.options[0]
             .value
             .as_str()

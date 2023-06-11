@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandOptionType},
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption, CreateEmbed},
 };
 use truncrate::TruncateToBoundary;
@@ -31,13 +33,13 @@ impl DiscordCommand for Wiki {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
         use api::Page;
 
         let title = {
             // Get the role argument
             let mut title = None;
-            if let CommandDataOptionValue::String(input) = &args.command.data.options[0].value {
+            if let CommandDataOptionValue::String(input) = &command.data.options[0].value {
                 title = Some(input);
             }
             title.unwrap().trim().to_owned()
@@ -49,7 +51,7 @@ impl DiscordCommand for Wiki {
         let mut content = page.get_summary().await?;
 
         let max =
-            super::core::get_content_character_limit(args.command.guild_id, &args.guild_preferences).await?;
+            super::common::get_content_character_limit(command.guild_id, &args.guild_preferences).await?;
         // Truncate wiki content.
         if content.len() >= max {
             content = format!("{}…", content.truncate_to_boundary(max));

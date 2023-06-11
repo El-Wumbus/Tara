@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serenity::{
-    all::CommandOptionType,
+    all::{CommandInteraction, CommandOptionType},
     builder::{
         CreateAttachment, CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponseMessage,
     },
@@ -42,12 +42,12 @@ impl DiscordCommand for Define {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
         let (word, audio) = {
             // Get the role argument
             let mut word = String::new();
             let mut audio = false;
-            for option in &args.command.data.options {
+            for option in &command.data.options {
                 match &*option.name {
                     "word" => word = option.value.as_str().unwrap_or_default().trim().to_string(),
                     "audio" => audio = option.value.as_bool().unwrap_or(audio),
@@ -60,7 +60,7 @@ impl DiscordCommand for Define {
 
         let words = get_word_definition(word.to_string()).await?;
         let max_content_length =
-            super::core::get_content_character_limit(args.command.guild_id, &args.guild_preferences).await?;
+            super::common::get_content_character_limit(command.guild_id, &args.guild_preferences).await?;
 
         // Create an embed from everything
         let mut total_length = 0usize;

@@ -10,10 +10,10 @@ use serenity::{
 use tara_util::logging::CommandLogger;
 use tracing::info;
 
-use crate::{commands::core::CommandResponse, config, database, logging, Result};
+use crate::{commands::common::CommandResponse, componet, config, database, logging, Result};
 
+mod common;
 mod conversions;
-mod core;
 mod define;
 mod help;
 mod movie;
@@ -59,13 +59,13 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CommandArguments {
-    context:           Arc<Context>,
-    command:           Arc<CommandInteraction>,
-    guild:             Option<Guild>,
-    config:            Arc<config::Configuration>,
-    guild_preferences: database::Guilds,
+    pub(super) context:           Arc<Context>,
+    pub(super) guild:             Option<Guild>,
+    pub(super) config:            Arc<config::Configuration>,
+    pub(super) guild_preferences: database::Guilds,
+    pub(super) component_map:     componet::ComponentMap,
 }
 
 
@@ -75,7 +75,7 @@ pub trait DiscordCommand {
     fn register(&self) -> CreateCommand;
 
     /// Run the discord command
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse>;
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse>;
 
     /// The name of the command
     fn name(&self) -> &'static str;
@@ -86,6 +86,7 @@ pub trait DiscordCommand {
 }
 
 /// Run a command specified by its name.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_command(
     context: Context,
     command: CommandInteraction,
@@ -94,6 +95,7 @@ pub async fn run_command(
     guild_preferences: database::Guilds,
     error_messages: Arc<config::ErrorMessages>,
     logger: CommandLogger,
+    component_map: componet::ComponentMap,
 ) {
     let command_event = logging::logged_command_event_from_interaction(&context.cache, &command);
     logger.enqueue(command_event).await;
@@ -112,10 +114,10 @@ pub async fn run_command(
     let command = Arc::new(command);
     let command_arguments = CommandArguments {
         context: context.clone(),
-        command: command.clone(),
         guild,
         config: config.clone(),
         guild_preferences,
+        component_map,
     };
 
     // Run the command.
@@ -130,7 +132,7 @@ pub async fn run_command(
         command.data.name, command.data.id, user.name, user.id,
     );
 
-    match cmd.run(command_arguments).await {
+    match cmd.run(command.clone(), command_arguments).await {
         Ok(response) => response.send(&command, &context.http).await,
         Err(e) => {
             let error_message = pick_error_message(&error_messages);

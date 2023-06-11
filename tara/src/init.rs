@@ -82,6 +82,7 @@ pub(super) async fn init() -> Result<()> {
             token:            token.clone(),
             currency_api_key: currency_api_key.clone(),
             omdb_api_key:     None,
+            unsplash_key:     None,
         },
         random_error_message: random_error_message.clone(),
         music:                Some(Default::default()),

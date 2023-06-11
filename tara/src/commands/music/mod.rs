@@ -18,11 +18,8 @@ use tracing::error;
 use uuid::Uuid;
 
 use self::youtube::TrackInfo;
-use super::{
-    core::{self, CommandResponse},
-    CommandArguments, DiscordCommand,
-};
-use crate::{Error, HttpKey, Result};
+use super::{common::CommandResponse, CommandArguments, DiscordCommand};
+use crate::{commands::common, Error, HttpKey, Result};
 
 mod youtube;
 
@@ -81,7 +78,11 @@ impl DiscordCommand for Music {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<core::CommandResponse> {
+    async fn run(
+        &self,
+        command: Arc<CommandInteraction>,
+        args: CommandArguments,
+    ) -> Result<common::CommandResponse> {
         let config = args.config.music.clone().unwrap_or_default();
         if !config.enabled {
             return Err(Error::FeatureDisabled(
@@ -90,14 +91,13 @@ impl DiscordCommand for Music {
             ));
         }
 
-        use super::core::suboptions;
         let Some(guild) = args.guild else {return Err(Error::InternalLogic)};
-        let option = &args.command.data.options[0];
+        let option = &command.data.options[0];
         let manager = songbird::get(&args.context).await.unwrap();
         match &*option.name {
             "play" => {
                 // Get the url
-                let mut options = suboptions(option).iter();
+                let mut options = common::suboptions(option).iter();
                 let Some(url_option) = options.next() else {return Err(Error::InternalLogic)};
                 let Some(url) = url_option.value.as_str() else {return Err(Error::InternalLogic)};
 
@@ -108,7 +108,7 @@ impl DiscordCommand for Music {
                     ));
                 }
 
-                play(url, args.context.clone(), &manager, &guild, args.command.clone()).await
+                play(url, args.context.clone(), &manager, &guild, command.clone()).await
             }
             "stop" => stop(guild.id).await,
             "leave" => leave(&manager, guild.id).await,

@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serenity::{
-    all::CommandOptionType,
+    all::{CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
     model::Permissions,
 };
@@ -83,12 +85,16 @@ impl DiscordCommand for Settings {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> crate::Result<CommandResponse> {
-        let option = &args.command.data.options[0];
+    async fn run(
+        &self,
+        command: Arc<CommandInteraction>,
+        args: CommandArguments,
+    ) -> crate::Result<CommandResponse> {
+        let option = &command.data.options[0];
         let guild = args.guild.unwrap();
         match &*option.name {
             "set" => {
-                let option = &super::core::suboptions(option)[0];
+                let option = &super::common::suboptions(option)[0];
                 match &*option.name {
                     "content_character_limit" => {
                         return set::content_character_limit(&args.guild_preferences, option, guild.id).await
@@ -116,10 +122,10 @@ impl DiscordCommand for Settings {
                 }
             }
             "view" => {
-                let option = &super::core::suboptions(option)[0];
+                let option = &super::common::suboptions(option)[0];
                 match &*option.name {
                     "content_character_limit" => {
-                        return view::content_character_limit(args.command.guild_id, &args.guild_preferences)
+                        return view::content_character_limit(command.guild_id, &args.guild_preferences)
                             .await;
                     }
                     _ => return Err(crate::Error::InternalLogic),

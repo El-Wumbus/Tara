@@ -1,4 +1,4 @@
-#![feature(const_trait_impl, stmt_expr_attributes)]
+#![feature(const_trait_impl, stmt_expr_attributes, type_alias_impl_trait, async_closure)]
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use serenity::{
@@ -22,6 +22,7 @@ pub use error::{Error, Result};
 
 use crate::ipc::ActionReceiver;
 mod commands;
+mod componet;
 mod config;
 mod database;
 mod defaults;
@@ -181,6 +182,7 @@ async fn daemon(
             config,
             logger: logger.clone(),
             error_messages: error_messages.await,
+            component_map: componet::ComponentMap::new(),
         },
     )
     .await?;
@@ -238,27 +240,49 @@ struct EventHandler {
     error_messages: Arc<config::ErrorMessages>,
     logger:         logutil::CommandLogger,
     guilds:         database::Guilds,
+    component_map:  componet::ComponentMap,
 }
-
 
 #[async_trait]
 impl client::EventHandler for EventHandler {
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
-        if let Interaction::Command(command) = interaction {
-            let guild: Option<Guild> = command
-                .guild_id
-                .and_then(|guild_id| guild_id.to_guild_cached(&context.cache).map(|x| x.to_owned()));
+        match interaction {
+            Interaction::Component(component) => {
+                let guild: Option<Guild> = component
+                    .guild_id
+                    .and_then(|guild_id| guild_id.to_guild_cached(&context.cache).map(|x| x.to_owned()));
 
-            commands::run_command(
-                context,
-                command,
-                guild,
-                self.config.clone(),
-                self.guilds.clone(),
-                self.error_messages.clone(),
-                self.logger.clone(),
-            )
-            .await;
+                let args = commands::CommandArguments {
+                    context: Arc::new(context),
+                    guild,
+                    config: self.config.clone(),
+                    guild_preferences: self.guilds.clone(),
+                    component_map: self.component_map.clone(),
+                };
+
+                let id = component.data.custom_id.clone();
+                if let Some(Err(e)) = self.component_map.run(&id, (component, args)).await {
+                    error!("Error running component handler: {e}");
+                };
+            }
+            Interaction::Command(command) => {
+                let guild: Option<Guild> = command
+                    .guild_id
+                    .and_then(|guild_id| guild_id.to_guild_cached(&context.cache).map(|x| x.to_owned()));
+
+                commands::run_command(
+                    context,
+                    command,
+                    guild,
+                    self.config.clone(),
+                    self.guilds.clone(),
+                    self.error_messages.clone(),
+                    self.logger.clone(),
+                    self.component_map.clone(),
+                )
+                .await;
+            }
+            _ => (),
         }
     }
 
@@ -272,7 +296,6 @@ impl client::EventHandler for EventHandler {
             .values()
             .map(|command| command.register())
             .collect::<Vec<_>>();
-
         Command::set_global_commands(&context.http, global_commands)
             .await
             .expect("Unable to register commands.");
@@ -292,6 +315,15 @@ impl client::EventHandler for EventHandler {
         if let Err(e) = self.guilds.save().await {
             error!("Couldn't save guild preferences to database: {e}");
         }
+
+        let component_map = self.component_map.clone();
+        let http = context.http.clone();
+        let cache = context.cache.clone();
+        task::spawn(async move {
+            if let Err(e) = component_map.timeout_watcher(http, cache).await {
+                error!("{e}");
+            }
+        });
     }
 }
 

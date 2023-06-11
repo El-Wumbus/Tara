@@ -1,15 +1,19 @@
 //! Produce pseudo-random outcomes
 
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use rand::Rng;
 use serenity::{
-    all::CommandOptionType,
-    builder::{CreateAttachment, CreateCommand, CreateCommandOption, CreateInteractionResponseMessage},
+    all::{CommandInteraction, CommandOptionType},
+    builder::{
+        CreateAttachment, CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponseMessage,
+    },
 };
 
 use self::images::Image;
-use super::{CommandArguments, CommandResponse, DiscordCommand};
+use super::{common::unsplash, CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
 mod images;
@@ -24,6 +28,7 @@ pub struct Random;
 impl DiscordCommand for Random {
     fn register(&self) -> CreateCommand {
         let options = vec![
+            CreateCommandOption::new(CommandOptionType::SubCommand, "image", "Get a random image"),
             CreateCommandOption::new(CommandOptionType::SubCommand, "coin", "Flip a coin"),
             CreateCommandOption::new(
                 CommandOptionType::SubCommand,
@@ -57,8 +62,8 @@ impl DiscordCommand for Random {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
-        let option = &args.command.data.options[0];
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
+        let option = &command.data.options[0];
         match &*option.name {
             "coin" => Ok(coin_flip()),
             "quote" => quote::random().await,
@@ -85,7 +90,7 @@ impl DiscordCommand for Random {
                 let mut high = 1_000_000.0;
                 let mut integer = false;
 
-                for option in super::core::suboptions(option) {
+                for option in super::common::suboptions(option) {
                     match &*option.name {
                         "low" => {
                             low = option.value.as_f64().unwrap_or(low);
@@ -98,6 +103,14 @@ impl DiscordCommand for Random {
                     }
                 }
                 Ok(random_number(low, high, integer))
+            }
+            "image" => {
+                let Some(api_key) = args.config.secrets.unsplash_key.as_ref()
+                    else {return Err(Error::FeatureDisabled("Unsplash images have been disabled".to_string()))};
+                let image = &unsplash::UnsplashImage::random(api_key).await?;
+                let embed: CreateEmbed = image.into();
+
+                Ok(CommandResponse::Embed(Box::new(embed)))
             }
             _ => Err(Error::InternalLogic),
         }

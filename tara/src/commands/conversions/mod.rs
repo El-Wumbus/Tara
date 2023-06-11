@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandOptionType},
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
 };
 use tokio::sync::Mutex;
@@ -74,9 +76,9 @@ impl DiscordCommand for Conversions {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
-        use super::core::suboptions;
-        let option = &args.command.data.options[0];
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
+        use super::common::suboptions;
+        let option = &command.data.options[0];
         match &*option.name {
             "temperature" => {
                 let options = suboptions(option);

@@ -1,14 +1,14 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use serenity::{
-    all::CommandOptionType,
+    all::{CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter},
 };
 
-use super::{core::CommandResponse, CommandArguments, DiscordCommand};
+use super::{common::CommandResponse, CommandArguments, DiscordCommand};
 use crate::{Error, Result};
 pub const COMMAND: Movie = Movie;
 
@@ -39,13 +39,13 @@ impl DiscordCommand for Movie {
             .set_options(options)
     }
 
-    async fn run(&self, args: CommandArguments) -> Result<CommandResponse> {
+    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
         let (title, year, full_plot) = {
             // Get the role argument
             let mut title = "";
             let mut year = None;
             let mut full_plot = false;
-            for option in &args.command.data.options {
+            for option in &command.data.options {
                 match &*option.name {
                     "title" => title = option.value.as_str().ok_or(Error::InternalLogic)?,
                     "year" => year = option.value.as_i64().map(|int| int.to_string()),

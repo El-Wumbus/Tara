@@ -14,7 +14,7 @@ pub async fn content_character_limit(
     option: &CommandDataOption,
     guild_id: GuildId,
 ) -> Result<CommandResponse> {
-    let option = &super::super::core::suboptions(option)[0];
+    let option = &super::super::common::suboptions(option)[0];
 
     // Get the first option (there's only one, and it's required), then get an
     // integer from it. We clamp this so that the command output won't be less than
@@ -44,7 +44,7 @@ pub async fn update_self_assignable_roles(
     guild: Guild,
     remove: bool,
 ) -> Result<CommandResponse> {
-    let option = &super::super::core::suboptions(option)[0];
+    let option = &super::super::common::suboptions(option)[0];
     let CommandDataOptionValue::Role(role_id) = option.value else {return Err(crate::Error::InternalLogic)};
 
     let role = { guild.roles.get(&role_id).unwrap() };

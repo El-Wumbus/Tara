@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{event, Level};
 
 use crate::{
-    commands::core::{ends_with_any, equals_any, strip_suffixes},
+    commands::common::{ends_with_any, equals_any, strip_suffixes},
     Error, Result,
 };
 
