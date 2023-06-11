@@ -289,14 +289,13 @@ async fn buttons_cleanup_handler(args: (String, Arc<Http>, Arc<Cache>)) -> Resul
     {
         let id = format!("{}-{}", command.channel_id, command.user.id);
         let components = vec![CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("{id}-next"))
-                .disabled(true)
-                .emoji(ReactionType::Unicode(String::from("➡️")))
-                .label(format!("Next ({}/{})", i + 1, imgs.len())),
             CreateButton::new(format!("{id}-prev"))
-                .disabled(true)
                 .emoji(ReactionType::Unicode(String::from("⬅️")))
-                .label("Previously"),
+                .disabled(true),
+            CreateButton::new(format!("{id}-next"))
+                .emoji(ReactionType::Unicode(String::from("➡️")))
+                .disabled(true)
+                .label(format!("Next ({}/{})", i + 1, imgs.len())),
         ])];
 
         command
