@@ -1,4 +1,3 @@
-set shell := ["bash", "-c"]
 set positional-arguments
 
 publish:
