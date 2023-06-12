@@ -25,21 +25,25 @@ If your desired platform isn't seen below, please [open an issue][issues].
 <details>
 <summary>Linux</summary>
 
-> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [is outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release] instead.
+> The recommended way to install Tara is by way of a package manager. :warning: **[crates.io]** [is very outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from an alternative source like [GitHub releases][github-release] instead.
 >
 > | Distribution | Repository      | Instructions                  |
 > | ------------ | --------------- | ----------------------------- |
 > | *Any*        | **[crates.io]** | `cargo install tara --locked` |
+> | *Arch Linux* | **[AUR]**       | `yay -S tara`                 | 
+>
+> When installing from the **[AUR]** `yay` is the helper used in the instructions,
+> but one isn't required or an alternative like `paru` may be used.
 
 </details>
 
 <details>
 <summary>macOS</summary>
 
-> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [is outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release] instead.
-> | Repository      | Instructions                 |
-> | --------------- | ---------------------------- |
-> | **[crates.io]** | `cargo install tara --locked`|
+> The recommended way to install Tara is by way of a package manager, however, **[crates.io]** [is very outdated](https://github.com/El-Wumbus/Tara/pull/3) and Tara should be installed from [GitHub releases][github-release] instead.
+> | Repository                | Instructions                 |
+> | ------------------------- | ---------------------------- |
+> | :warning: **[crates.io]** | `cargo install tara --locked`|
 
 </details>
 
@@ -184,6 +188,7 @@ OPTIONS:
 | `music leave`             | Leave your voice channel                                                                 | No             | *NONE*       |
 
 [crates.io]: https://crates.io/crates/tara
+[AUR]: https://aur.archlinux.org/packages/tara
 [crates.io-badge]: https://img.shields.io/crates/v/tara?logo=Rust&style=flat-square
 [github-license]: https://github.com/El-Wumbus/Tara/blob/master/LICENSE
 [github-license-badge]: https://img.shields.io/github/license/El-Wumbus/Tara?logo=Apache&style=flat-square
