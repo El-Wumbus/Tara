@@ -10,7 +10,7 @@ use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 fn init() {
     // Setup logging
     let filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
+        .with_default_directive(LevelFilter::ERROR.into())
         .parse("")
         .unwrap();
     tracing_subscriber::registry()
