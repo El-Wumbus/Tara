@@ -148,6 +148,8 @@ OPTIONS:
 | `random quote`            | Gives a random quote                                                                       | Yes            | *NONE*       |
 | `random number`           | Generates a random number between optional low and high bounds (inclusive)                 | Yes            | *NONE*       |
 | `random image`            | Get a random image                                                                         | Yes            | *NONE*       |
+| `random emoji`            | Get a random Emoji                                                                         | Yes            | *NONE*       |
+| `random fact`             | Get a random fun fact                                                                      | Yes            | *NONE*       |
 | `search duckduckgo`       | Search *[DuckDuckGo][duckduckgo]* for a search term. Results are censored.                 | Yes            | *NONE*       |
 | `search image`            | Search for an image from the internet                                                      | Yes            | *NONE*       |
 | `conversions temperature` | Convert one temperature unit to another. Supports celsius, kelvin, and fahrenheit          | Yes            | *NONE*       |

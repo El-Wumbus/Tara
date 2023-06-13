@@ -22,9 +22,9 @@ mod music;
 mod random;
 mod role;
 mod search;
+mod series;
 mod settings;
 mod wiki;
-mod series;
 
 type Command = &'static (dyn DiscordCommand + Sync + Send);
 

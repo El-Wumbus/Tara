@@ -17,6 +17,7 @@ use self::images::Image;
 use super::{common::unsplash, CommandArguments, CommandResponse, DiscordCommand};
 use crate::{Error, Result};
 
+mod emoji;
 mod images;
 mod quote;
 
@@ -35,6 +36,7 @@ impl DiscordCommand for Random {
             "quote",
             "Request a random quote from the internet",
         );
+        let emoji = CreateCommandOption::new(CommandOptionType::SubCommand, "emoji", "Get a random Emoji");
         let dog = CreateCommandOption::new(CommandOptionType::SubCommand, "dog", "Get a random dog photo");
         let cat = CreateCommandOption::new(CommandOptionType::SubCommand, "cat", "Get a random cat photo");
         let fact = CreateCommandOption::new(CommandOptionType::SubCommand, "fact", "Get a random fun fact");
@@ -57,7 +59,7 @@ impl DiscordCommand for Random {
                     .required(false),
                 );
 
-        let options = vec![image, coin, quote, dog, cat, number, fact];
+        let options = vec![image, coin, quote, dog, cat, number, fact, emoji];
 
         CreateCommand::new(self.name())
             .description("Define an english word")
@@ -115,6 +117,7 @@ impl DiscordCommand for Random {
 
                 Ok(CommandResponse::Embed(Box::new(embed)))
             }
+            "emoji" => Ok(CommandResponse::String(emoji::random_emoji().await?.to_string())),
             "fact" => random_fact().await,
             _ => Err(Error::InternalLogic),
         }
