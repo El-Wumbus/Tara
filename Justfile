@@ -1,6 +1,6 @@
 set positional-arguments
 
-publish:
+@publish *args='':
     @./tools/publish.sh $1
 
 
