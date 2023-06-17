@@ -15,12 +15,12 @@ Tara works on Linux and macOS.
 
 </div>
 
-# Installation
+## Installation
 
 Tara can be installed very easily on [Linux](#linux) or [macOS](#macos).  
 If your desired platform isn't available, please [open an issue][issues].
 
-## Linux
+### Linux
 
 The recommended way to install Tara is by way of a package manager.
 :warning: **[crates.io]** [is very outdated](https://github.com/El-Wumbus/Tara/pull/3)
@@ -40,7 +40,7 @@ Tara looks for a configuration file in this order:
 
 Now get to [configuring Tara](#configuration).
 
-## macOS
+### macOS
 
 The recommended way to install Tara is by way of a package manager.
 :warning: **[crates.io]** [is very outdated](https://github.com/El-Wumbus/Tara/pull/3)
@@ -54,7 +54,7 @@ Tara's configuration file is located here: `$HOME/Library/Application Support/co
 
 Now get to [configuring Tara](#configuration).
 
-# Configuration
+## Configuration
 
 Before running Tara you must configure it.
 The configuration file should look similarly to below:
@@ -110,9 +110,9 @@ More notes on the above noted configurations:
 - *`music`* - Optional: This only takes effect if Tara is compiled with the alpha feature `music` enabled.
   - *`music.enabled`* - Enables or disables the music feature at runtime.
 
-# Using
+## Using
 
-## Running
+### Running
 
 To start Tara, use the `tara daemon` command. You should expect logged output.
 If Tara has a proper Discord token, then it's [ready to use](#discord-commands).  
