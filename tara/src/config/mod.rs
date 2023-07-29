@@ -111,6 +111,7 @@ impl Configuration {
             music,
         };
 
+        tracing::debug!("Parsed config: {config:#?}");
         Ok(config)
     }
 }
