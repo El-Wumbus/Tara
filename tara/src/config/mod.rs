@@ -18,15 +18,21 @@ pub struct Configuration {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// API keys and other secrets
 pub struct ConfigurationSecrets {
-    /// Discord bot token
-    pub token:            String,
-    /// Postgres Database URL (This is either configured here or via the `TARA_POSTGRES`
-    /// env variable).
+    /// Discord bot token (overridden at runtime by the `TARA_TOKEN` env variable if
+    /// present).
+    pub token:            Option<String>,
+    /// Postgres Database URL (overridden at runtime by the `TARA_POSTGRES` env variable
+    /// if present).
     pub postgres:         Option<String>,
-    /// API key for access to `currencyapi.com` (This is either configured here or via
-    /// `TARA_CURRENCY_COM`)
+    /// API key for access to `currencyapi.com` (overridden at runtime by the
+    /// `TARA_CURRENCY_KEY` env variable if present).
     pub currency_api_key: Option<String>,
+    /// API key for access to OMDb (overridden at runtime by the
+    /// `TARA_OMDB_KEY` env variable if present), this is completely optional, if
+    /// it's not provided builtin ones will be used instead.
     pub omdb_api_key:     Option<String>,
+    /// API key for access to Unsplash (overridden at runtime by the
+    /// `TARA_UNSPLASH_KEY` env variable if present).
     pub unsplash_key:     Option<String>,
 }
 
@@ -82,13 +88,14 @@ impl Configuration {
             random_error_message,
             music,
         } = parsed;
+
         let config = Self {
             secrets: ConfigurationSecrets {
-                token,
-                postgres: postgres.or(env::var("TARA_POSTGRES").ok()),
-                currency_api_key: currency_api_key.or(env::var("TARA_CURRENCY_COM").ok()),
-                omdb_api_key,
-                unsplash_key,
+                token: env::var("TARA_TOKEN").ok().or(token),
+                postgres: env::var("TARA_POSTGRES").ok().or(postgres),
+                currency_api_key: env::var("TARA_CURRENCY_KEY").ok().or(currency_api_key),
+                omdb_api_key: env::var("TARA_OMDB_KEY").ok().or(omdb_api_key),
+                unsplash_key: env::var("TARA_UNSPLASH_KEY").ok().or(unsplash_key),
             },
             random_error_message,
             music,
@@ -108,14 +115,10 @@ impl Default for Configuration {
     }
 }
 
-impl ConfigurationSecrets {
-    const DEFAULT_DISCORD_TOKEN: &str = "<DISCORD_TOKEN>";
-}
-
 impl Default for ConfigurationSecrets {
     fn default() -> Self {
         Self {
-            token:            Self::DEFAULT_DISCORD_TOKEN.to_string(),
+            token:            None,
             currency_api_key: None,
             omdb_api_key:     None,
             unsplash_key:     None,

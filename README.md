@@ -50,7 +50,7 @@ and Tara should be installed from an alternative source like [GitHub releases][g
 | ------------------------- | ----------------------------- |
 | :warning: **[crates.io]** | `cargo install tara --locked` |
 
-Tara's configuration file is located here: `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/tara toml` on macOS.
+Tara's configuration file is located here: `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/tara.toml` on macOS.
 
 Now get to [configuring Tara](#configuration).
 
@@ -121,18 +121,20 @@ Provided for Linux users who use Systemd is a [`extra/tara.service`](extra/tara.
 file that can be used to run Tara.
 
 ```
-$ tara daemon --help
-tara-daemon 0.5.0
-Start Tara
+$ tara --help
+Tara 6.0.0
+Decator <decator.c@proton.me>
+Tara is a modern, free, open-source, self-hostable Discord bot.
 
 USAGE:
-    tara daemon [OPTIONS]
+    tara [OPTIONS]
 
 FLAGS:
-    -h, --help    Prints help information
+    -h, --help       Prints help information
+    -V, --version    Prints version information
 
 OPTIONS:
-    -l, --log-level <LOGLEVEL>
+    -l, --log-level <LOGLEVEL>    
         --config <config>         Specify a configuration file to use instead of the default
 ```
 

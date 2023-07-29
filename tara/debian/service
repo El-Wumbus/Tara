@@ -4,7 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/bin/sh -c "tara -l warn"
+ExecStart=tara -l warn
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,7 @@
 #![feature(const_trait_impl, stmt_expr_attributes, type_alias_impl_trait, async_closure)]
 use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc};
 
+use anyhow::Context as AnyhowContextWtfRust;
 use serenity::{all::*, async_trait, client, gateway::ActivityData, prelude::Context, Client};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use structopt::{
@@ -159,16 +160,21 @@ async fn main() -> anyhow::Result<()> {
         };
     });
     info!("Initialized IPC server");
-
+    
+    let event_handler = EventHandler {
+        config: config.clone(),
+        logger: logger.clone(),
+        error_messages: load_error_messages(config.clone()).await,
+        component_map: componet::ComponentMap::new(),
+        database,
+    };
     let mut client = build_client(
-        config.secrets.token.clone(),
-        EventHandler {
-            config: config.clone(),
-            logger: logger.clone(),
-            error_messages: load_error_messages(config).await,
-            component_map: componet::ComponentMap::new(),
-            database,
-        },
+        config
+            .secrets
+            .token
+            .clone()
+            .context("Why didn't you provide a discord token?")?,
+        event_handler,
     )
     .await?;
 
