@@ -134,9 +134,12 @@ async fn main() -> anyhow::Result<()> {
     .await??;
     let config = Arc::new(config::Configuration::parse(config).await?);
 
-    let database = PgPoolOptions::new()
-        .connect("postgres://postgres@localhost/TaraTest")
-        .await?;
+    let postgres = config
+        .secrets
+        .postgres
+        .as_deref()
+        .context("Gimme a postgres database please!")?;
+    let database = PgPoolOptions::new().connect(postgres).await?;
     sqlx::migrate!("./migrations")
         .run(&database)
         .await
