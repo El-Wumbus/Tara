@@ -16,9 +16,8 @@ pub struct Configuration {
     pub music:                Option<music::Music>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 /// API keys and other secrets
-#[derive(Default)]
 pub struct ConfigurationSecrets {
     /// Discord bot token (overridden at runtime by the `TARA_TOKEN` env variable if
     /// present).
@@ -125,7 +124,6 @@ impl Default for Configuration {
         }
     }
 }
-
 
 
 #[derive(Debug, Clone, PartialEq)]
