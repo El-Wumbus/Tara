@@ -13,7 +13,7 @@ use tokio::task;
 use truncrate::TruncateToBoundary;
 
 use super::{CommandArguments, CommandResponse, DiscordCommand};
-use crate::{Error, Result};
+use crate::{defaults, Error, Result};
 
 pub const COMMAND: Define = Define;
 
@@ -59,8 +59,7 @@ impl DiscordCommand for Define {
         };
 
         let words = get_word_definition(word.to_string()).await?;
-        let max_content_length =
-            super::common::get_content_character_limit(command.guild_id, &args.guild_preferences).await?;
+        let max_content_length = defaults::content_character_limit_default();
 
         // Create an embed from everything
         let mut total_length = 0usize;

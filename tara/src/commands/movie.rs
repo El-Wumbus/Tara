@@ -189,7 +189,7 @@ impl OmdbMovie {
 
 impl From<OmdbMovie> for CreateEmbed {
     fn from(value: OmdbMovie) -> Self {
-        let description = format!("{}", value.plot);
+        let description = value.plot.to_string();
         let rotten_tomatoes = {
             let rating = value.ratings.iter().find(|x| x.source == "Rotten Tomatoes");
             rating.map_or("N/A", |rating| &rating.value)

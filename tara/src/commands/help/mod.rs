@@ -79,7 +79,11 @@ impl DiscordCommand for Help {
         let options_fields = command.options.iter().map(option_to_field);
         embed = embed.fields(options_fields);
 
-        let Some(command) = COMMANDS.get(command_name.as_str()) else {return Err(Error::CommandMisuse(format!("\"{command_name}\" is not a command!")))};
+        let Some(command) = COMMANDS.get(command_name.as_str()) else {
+            return Err(Error::CommandMisuse(format!(
+                "\"{command_name}\" is not a command!"
+            )));
+        };
         if let Some(help) = command.help() {
             embed = embed.field("Additional Help", help, false);
         }

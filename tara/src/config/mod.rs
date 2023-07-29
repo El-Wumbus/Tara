@@ -1,3 +1,5 @@
+use std::env;
+
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -6,29 +8,29 @@ use crate::{Error, Result};
 pub mod music;
 
 /// Configurations required to host the bot
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration {
     pub secrets:              ConfigurationSecrets,
     pub random_error_message: ConfigurationRandomErrorMessages,
     pub music:                Option<music::Music>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// API keys and other secrets
 pub struct ConfigurationSecrets {
     /// Discord bot token
-    pub token: String,
-
-    /// API key for access to `currencyapi.com`
+    pub token:            String,
+    /// Postgres Database URL (This is either configured here or via the `TARA_POSTGRES`
+    /// env variable).
+    pub postgres:         Option<String>,
+    /// API key for access to `currencyapi.com` (This is either configured here or via
+    /// `TARA_CURRENCY_COM`)
     pub currency_api_key: Option<String>,
     pub omdb_api_key:     Option<String>,
     pub unsplash_key:     Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 /// If, and where, to find error messages to randomly select from.
 pub enum ConfigurationRandomErrorMessages {
@@ -37,7 +39,8 @@ pub enum ConfigurationRandomErrorMessages {
 }
 
 impl Configuration {
-    /// Read a `Configuration` from toml located at `path`.
+    /// Read a `Configuration` from toml located at `path`, anything not found in the file
+    /// will be grabbed from the corresponding environment variables.
     ///
     /// # Usage
     ///
@@ -46,7 +49,7 @@ impl Configuration {
     /// # use tara::config::Configuration;
     /// # tokio_test::block_on(async {
     /// let file = PathBuf::from("config.toml");
-    /// let config = Configuration::from_toml(file).await.unwrap();
+    /// let config = Configuration::parse(file).await.unwrap();
     /// dbg!(config);
     /// # });
     /// ```
@@ -57,16 +60,41 @@ impl Configuration {
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into a `Configuration`
-    pub async fn from_toml(path: impl Into<std::path::PathBuf>) -> Result<Self> {
+    pub async fn parse(path: impl Into<std::path::PathBuf>) -> Result<Self> {
         let path = path.into();
         let file_contents = fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed = toml::from_str(&file_contents).map_err(|e| {
+        let parsed: Self = toml::from_str(&file_contents).map_err(|e| {
             Error::ConfigurationParse {
                 path,
                 error: Box::new(e),
             }
         })?;
-        Ok(parsed)
+
+        let Self {
+            secrets:
+                ConfigurationSecrets {
+                    token,
+                    postgres,
+                    currency_api_key,
+                    omdb_api_key,
+                    unsplash_key,
+                },
+            random_error_message,
+            music,
+        } = parsed;
+        let config = Self {
+            secrets: ConfigurationSecrets {
+                token,
+                postgres: postgres.or(env::var("TARA_POSTGRES").ok()),
+                currency_api_key: currency_api_key.or(env::var("TARA_CURRENCY_COM").ok()),
+                omdb_api_key,
+                unsplash_key,
+            },
+            random_error_message,
+            music,
+        };
+
+        Ok(config)
     }
 }
 
@@ -91,6 +119,7 @@ impl Default for ConfigurationSecrets {
             currency_api_key: None,
             omdb_api_key:     None,
             unsplash_key:     None,
+            postgres:         Some("postgres://postgres@localhost/Tara".to_string()),
         }
     }
 }

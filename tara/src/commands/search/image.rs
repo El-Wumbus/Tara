@@ -33,7 +33,9 @@ pub(super) async fn button_handler(
     f: fn(isize) -> isize,
 ) -> Result<()> {
     let (component, args) = args;
-    let Some((channel_id, message_id)) = USERS.lock().await.get(&component.user.id).copied() else {return Ok(())};
+    let Some((channel_id, message_id)) = USERS.lock().await.get(&component.user.id).copied() else {
+        return Ok(());
+    };
     if channel_id != component.channel_id || message_id != component.message.id {
         // Do nothing because this user didn't start this interaction and shouldn't be able to
         // interfere with the others.

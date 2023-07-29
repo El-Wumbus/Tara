@@ -114,7 +114,7 @@ More notes on the above noted configurations:
 
 ### Running
 
-To start Tara, use the `tara daemon` command. You should expect logged output.
+To start Tara, use the `tara` command. You should expect logged output.
 If Tara has a proper Discord token, then it's [ready to use](#discord-commands).  
 
 Provided for Linux users who use Systemd is a [`extra/tara.service`](extra/tara.service)

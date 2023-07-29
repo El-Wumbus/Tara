@@ -2,18 +2,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandInteraction, CommandOptionType},
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
     builder::{CreateCommand, CreateCommandOption},
     model::Permissions,
 };
 
 use super::{CommandArguments, CommandResponse, DiscordCommand};
-
-
-mod set;
-pub use set::*;
-mod view;
-pub use view::*;
+use crate::{commands::common::ExistingRole, Error, IdUtil};
 
 pub const COMMAND: Settings = Settings;
 
@@ -28,21 +23,6 @@ impl DiscordCommand for Settings {
                 CommandOptionType::SubCommandGroup,
                 "set",
                 "Set Tara's settings for this guild",
-            )
-            .add_sub_option(
-                CreateCommandOption::new(
-                    CommandOptionType::SubCommand,
-                    "content_character_limit",
-                    "The charater limit on content retrived from external sources",
-                )
-                .add_sub_option(
-                    CreateCommandOption::new(
-                        CommandOptionType::Integer,
-                        "chars",
-                        "Length in chars (80 MIN, 1900 MAX)",
-                    )
-                    .required(true),
-                ),
             )
             .add_sub_option(
                 CreateCommandOption::new(
@@ -70,12 +50,7 @@ impl DiscordCommand for Settings {
                 CommandOptionType::SubCommandGroup,
                 "view",
                 "View a setting's value",
-            )
-            .add_sub_option(CreateCommandOption::new(
-                CommandOptionType::SubCommand,
-                "content_character_limit",
-                "The charater limit on content retrived from external sources",
-            )),
+            ),
         ];
 
         CreateCommand::new(self.name())
@@ -95,41 +70,69 @@ impl DiscordCommand for Settings {
         match &*option.name {
             "set" => {
                 let option = &super::common::suboptions(option)[0];
-                match &*option.name {
-                    "content_character_limit" => {
-                        return set::content_character_limit(&args.guild_preferences, option, guild.id).await
-                    }
+                let option_name = option.name.clone();
+                let option = &super::common::suboptions(option)[0];
+                let CommandDataOptionValue::Role(role_id) = option.value else {
+                    return Err(crate::Error::InternalLogic);
+                };
+
+                match &*option_name {
                     "add_self_assignable_role" => {
-                        return set::update_self_assignable_roles(
-                            &args.guild_preferences,
-                            option,
-                            guild,
-                            false,
+                        let role = { guild.roles.get(&role_id).unwrap() };
+                        let inserted = sqlx::query_as!(
+                            ExistingRole,
+                            "INSERT INTO roles (id, guild_id) VALUES ($1, $2)
+                            ON CONFLICT DO NOTHING
+                            returning id",
+                            role.id.toint(),
+                            guild.id.toint(),
                         )
-                        .await
+                        .fetch_optional(&args.database)
+                        .await?
+                        .map(ExistingRole::id);
+
+                        // For the message
+                        if let Some(id) = inserted {
+                            Ok(format!("Added '{}' ({id}) to self-assignable roles!", role.name).into())
+                        } else {
+                            Ok(format!(
+                                "'{}' ({}) is already part of the guild's self-assingable roles.",
+                                role.name, role.id
+                            )
+                            .into())
+                        }
                     }
 
                     "remove_self_assignable_role" => {
-                        return set::update_self_assignable_roles(
-                            &args.guild_preferences,
-                            option,
-                            guild,
-                            true,
+                        let role = { guild.roles.get(&role_id).unwrap() };
+                        let removed = sqlx::query_as!(
+                            ExistingRole,
+                            "DELETE FROM roles WHERE id = $1 RETURNING id",
+                            role.id.toint(),
                         )
-                        .await
+                        .fetch_optional(&args.database)
+                        .await?
+                        .map(ExistingRole::id);
+
+                        if let Some(id) = removed {
+                            Ok(format!(
+                                "Removed '{}' ({id}) from the guild's self-assignable roles.",
+                                role.name
+                            )
+                            .into())
+                        } else {
+                            Err(Error::CommandMisuse(format!(
+                                "'{}' ({}) wasn't part of the self-assignable roles and couldn't be removed!",
+                                role.name, role.id
+                            )))
+                        }
                     }
                     _ => unreachable!(),
                 }
             }
             "view" => {
-                let option = &super::common::suboptions(option)[0];
-                match &*option.name {
-                    "content_character_limit" => {
-                        return view::content_character_limit(command.guild_id, &args.guild_preferences)
-                            .await;
-                    }
-                    _ => return Err(crate::Error::InternalLogic),
-                }
+                let _option = &super::common::suboptions(option)[0];
+                return Err(crate::Error::InternalLogic);
             }
             _ => return Err(crate::Error::InternalLogic),
         }

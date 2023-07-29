@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use async_trait::async_trait;
 use serenity::{
-    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType},
-    builder::{CreateCommand, CreateCommandOption},
+    all::{CommandDataOptionValue, CommandInteraction, CommandOptionType, RoleId},
+    builder::{CreateCommand, CreateCommandOption, CreateEmbed},
 };
 
-use super::{CommandArguments, CommandResponse, DiscordCommand};
-use crate::{Error, Result};
+use super::{common::ExistingRole, CommandArguments, CommandResponse, DiscordCommand};
+use crate::{Error, IdUtil, Result};
 
 pub const COMMAND: Role = Role;
 
@@ -48,68 +48,71 @@ impl DiscordCommand for Role {
     async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
         let option = &command.data.options[0];
         let guild = args.guild.ok_or_else(|| Error::InternalLogic)?;
-        let prefs = args
-            .guild_preferences
-            .get(guild.id)
-            .await
-            .ok_or_else(|| Error::InternalLogic)?;
-        let roles = prefs
-            .all_assignable_discord_roles(&args.context.http)
-            .await
-            .unwrap();
+
+        let ids = sqlx::query_as!(
+            ExistingRole,
+            "SELECT id FROM roles WHERE guild_id = $1",
+            guild.id.toint(),
+        )
+        .fetch_all(&args.database)
+        .await?
+        .into_iter()
+        .map(ExistingRole::id)
+        .collect::<Vec<RoleId>>();
 
         match &*option.name {
             "list" => {
-                let roles = roles
-                    .iter()
-                    .map(|role| &*role.name)
-                    .collect::<Vec<&str>>()
-                    .join(", ");
+                let mut description = String::new();
+                for (i, id) in ids.iter().copied().enumerate() {
+                    if let Some(role) = guild.roles.get(&id) {
+                        let emoji = role.unicode_emoji.clone().map_or_else(String::new, |e| e + " ");
+                        write!(&mut description, "{emoji}{}", role.name).unwrap();
 
-                return Ok(format!("Self-assignable roles:\n> {roles}").into());
-            }
-
-            "add" => {
-                let role = {
-                    let CommandDataOptionValue::Role(role_id) = super::common::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
-                    guild.roles.get(&role_id).unwrap()
-                };
-                if !roles.iter().any(|x| x.id.eq(&role.id)) {
-                    return Err(Error::RoleNotAssignable(role.name.clone()));
+                        if i != ids.len() - 1 {
+                            write!(&mut description, ", ").unwrap();
+                        }
+                    }
                 }
 
-                // We can unwrap because this command only runs in DM
-                let mut member = command.member.clone().unwrap();
-
-                // Add role
-                member
-                    .add_role(&args.context.http, role.id)
-                    .await
-                    .map_err(|e| Error::UserRole(Box::new(e)))?;
-
-                return Ok(format!("Added {}", role.name).into());
+                let roles = CreateEmbed::new().title("Roles").description(description);
+                Ok(CommandResponse::Embed(roles.into()))
             }
 
-            "remove" => {
+            "add" | "remove" => {
                 let role = {
-                    let CommandDataOptionValue::Role(role_id) = super::common::suboptions(option)[0].value else {return Err(crate::Error::InternalLogic)};
+                    let CommandDataOptionValue::Role(role_id) = super::common::suboptions(option)[0].value
+                    else {
+                        return Err(crate::Error::InternalLogic);
+                    };
                     guild.roles.get(&role_id).unwrap()
                 };
 
-                if !roles.iter().any(|x| x.id.eq(&role.id)) {
+                if !ids.into_iter().any(|x| x == role.id) {
                     return Err(Error::RoleNotAssignable(role.name.clone()));
                 }
 
-                // We can unwrap because this command only runs in DM
+                // We can unwrap because this command only runs in guilds.
                 let mut member = command.member.clone().unwrap();
 
-                // Remove role
-                member
-                    .remove_role(&args.context.http, role.id)
-                    .await
-                    .map_err(|e| Error::UserRole(Box::new(e)))?;
+                match &*option.name {
+                    "add" => {
+                        member
+                            .add_role(&args.context.http, role.id)
+                            .await
+                            .map_err(|e| Error::UserRole(Box::new(e)))?;
 
-                return Ok(format!("Removed {}", role.name).into());
+                        Ok(format!("Added {}", role.name).into())
+                    }
+                    "remove" => {
+                        member
+                            .remove_role(&args.context.http, role.id)
+                            .await
+                            .map_err(|e| Error::UserRole(Box::new(e)))?;
+
+                        Ok(format!("Removed {}", role.name).into())
+                    }
+                    _ => unreachable!(),
+                }
             }
 
             _ => return Err(Error::InternalLogic),

@@ -1,6 +1,6 @@
 [package]
 name = "tara-util"
-version = "0.5.1"
+version = "6.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,13 +12,13 @@ interprocess = { version = "1.2", features = ["tokio_support"] }
 futures-lite = "1.13.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
-tokio = { version = "1.28", features = ["fs"] }
+tokio = { version = "1.29", features = ["fs"] }
 tracing = "0.1"
 lazy_static = "1.4"
 tokio-stream = "0.1.14"
-sysinfo = "0.29.0"
+sysinfo = "0.29.7"
 byteorder = "1.4.3"
-async-trait = "0.1.68"
+async-trait = "0.1.72"
 byteorder_async = { version = "1.2.0", features = ["futures_async"] }
 chrono = { version = "0.4", features = ["serde"] }
 crossbeam-queue = "0.3.8"

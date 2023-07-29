@@ -8,7 +8,7 @@ use serenity::{
 use truncrate::TruncateToBoundary;
 
 use super::{CommandArguments, DiscordCommand};
-use crate::{commands::CommandResponse, Result};
+use crate::{commands::CommandResponse, defaults, Result};
 
 mod api;
 
@@ -33,7 +33,11 @@ impl DiscordCommand for Wiki {
             .set_options(options)
     }
 
-    async fn run(&self, command: Arc<CommandInteraction>, args: CommandArguments) -> Result<CommandResponse> {
+    async fn run(
+        &self,
+        command: Arc<CommandInteraction>,
+        _args: CommandArguments,
+    ) -> Result<CommandResponse> {
         use api::Page;
 
         let title = {
@@ -50,8 +54,7 @@ impl DiscordCommand for Wiki {
         let title = page.title.clone();
         let mut content = page.get_summary().await?;
 
-        let max =
-            super::common::get_content_character_limit(command.guild_id, &args.guild_preferences).await?;
+        let max = defaults::content_character_limit_default();
         // Truncate wiki content.
         if content.len() >= max {
             content = format!("{}…", content.truncate_to_boundary(max));

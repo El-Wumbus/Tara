@@ -20,7 +20,7 @@ impl std::cmp::PartialEq for SearchResult {
 }
 
 impl std::cmp::PartialOrd for SearchResult {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { self.title.partial_cmp(&other.title) }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
 }
 
 impl std::cmp::Ord for SearchResult {
