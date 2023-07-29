@@ -61,6 +61,7 @@ csv-async = { version = "1.2.6", features = ["tokio"] }
 url = "2"
 sscanf = "0.4.1"
 bincode = "1.3.3"
+dotenvy = "0.15"
 
 # Music
 songbird = { optional = true, git = "https://github.com/serenity-rs/songbird", rev = "0044728b5407aa7644153c72158aa3ee99c69bfa", features = [
@@ -77,6 +78,7 @@ youtubei-rs = { version = "1.3.5", optional = true }
 humantime = "2.1"
 uuid = { version = "1", optional = true }
 regex = { version = "1.9", optional = true }
+
 
 
 [dev-dependencies]

@@ -10,7 +10,7 @@ use structopt::{
 };
 use tara_util::{ipc as ipcutil, logging as logutil, paths};
 use tokio::task;
-use tracing::{debug, error, info, metadata::LevelFilter};
+use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 
 mod error;
@@ -122,24 +122,25 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer().with_filter(filter))
         .init();
 
-    // Get the configuration file path and read the configuration from it.
-    let config_path = match config {
-        Some(x) => x,
-        None => {
-            paths::TARA_CONFIGURATION_FILE
-                .clone()
-                .ok_or(Error::MissingConfigurationFile)?
+    tokio::task::spawn_blocking(|| {
+        match dotenvy::dotenv() {
+            // This is stupid.
+            Ok(_) => {}
+            Err(dotenvy::Error::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e).context("Failed reading .env file"),
         }
-    };
-    let config = Arc::new(config::Configuration::parse(&config_path).await?);
-    debug!("Loaded configuration from \"{}\"", config_path.display());
+        anyhow::Ok(())
+    })
+    .await??;
+    let config = Arc::new(config::Configuration::parse(config).await?);
 
     let database = PgPoolOptions::new()
         .connect("postgres://postgres@localhost/TaraTest")
         .await?;
-    if let Err(e) = sqlx::migrate!("./migrations").run(&database).await {
-        error!("Couldn't run database migrations: {e}");
-    }
+    sqlx::migrate!("./migrations")
+        .run(&database)
+        .await
+        .context("Couldn't run database migrations!")?;
 
     let logger = logutil::CommandLogger::new();
     task::spawn({
@@ -160,7 +161,7 @@ async fn main() -> anyhow::Result<()> {
         };
     });
     info!("Initialized IPC server");
-    
+
     let event_handler = EventHandler {
         config: config.clone(),
         logger: logger.clone(),

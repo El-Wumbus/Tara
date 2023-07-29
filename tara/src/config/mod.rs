@@ -1,6 +1,7 @@
-use std::env;
+use std::{env, path::Path};
 
 use serde::{Deserialize, Serialize};
+use tara_util::paths;
 use tokio::fs;
 
 use crate::{Error, Result};
@@ -17,6 +18,7 @@ pub struct Configuration {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// API keys and other secrets
+#[derive(Default)]
 pub struct ConfigurationSecrets {
     /// Discord bot token (overridden at runtime by the `TARA_TOKEN` env variable if
     /// present).
@@ -66,15 +68,12 @@ impl Configuration {
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into a `Configuration`
-    pub async fn parse(path: impl Into<std::path::PathBuf>) -> Result<Self> {
-        let path = path.into();
-        let file_contents = fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed: Self = toml::from_str(&file_contents).map_err(|e| {
-            Error::ConfigurationParse {
-                path,
-                error: Box::new(e),
-            }
-        })?;
+    pub async fn parse(path: Option<impl AsRef<Path>>) -> anyhow::Result<Self> {
+        // Get the configuration file path and read the configuration from it.
+        let path = path
+            .as_ref()
+            .map(|x| x.as_ref())
+            .or_else(|| paths::TARA_CONFIGURATION_FILE.as_ref().map(|x| x.as_path()));
 
         let Self {
             secrets:
@@ -87,15 +86,27 @@ impl Configuration {
                 },
             random_error_message,
             music,
-        } = parsed;
+        } = if let Some(path) = path {
+            let file_contents = fs::read_to_string(path).await.map_err(Error::Io)?;
+            tracing::info!("Loaded configuration from \"{}\"", path.display());
+            let parsed: Self = toml::from_str(&file_contents).map_err(|e| {
+                Error::ConfigurationParse {
+                    path:  path.to_path_buf(),
+                    error: Box::new(e),
+                }
+            })?;
+            parsed
+        } else {
+            Self::default()
+        };
 
         let config = Self {
             secrets: ConfigurationSecrets {
-                token: env::var("TARA_TOKEN").ok().or(token),
-                postgres: env::var("TARA_POSTGRES").ok().or(postgres),
+                token:            env::var("TARA_TOKEN").ok().or(token),
+                postgres:         env::var("TARA_POSTGRES").ok().or(postgres),
                 currency_api_key: env::var("TARA_CURRENCY_KEY").ok().or(currency_api_key),
-                omdb_api_key: env::var("TARA_OMDB_KEY").ok().or(omdb_api_key),
-                unsplash_key: env::var("TARA_UNSPLASH_KEY").ok().or(unsplash_key),
+                omdb_api_key:     env::var("TARA_OMDB_KEY").ok().or(omdb_api_key),
+                unsplash_key:     env::var("TARA_UNSPLASH_KEY").ok().or(unsplash_key),
             },
             random_error_message,
             music,
@@ -109,23 +120,13 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             secrets:              ConfigurationSecrets::default(),
-            random_error_message: ConfigurationRandomErrorMessages::Boolean(true),
+            random_error_message: ConfigurationRandomErrorMessages::Boolean(false),
             music:                Some(music::Music::default()),
         }
     }
 }
 
-impl Default for ConfigurationSecrets {
-    fn default() -> Self {
-        Self {
-            token:            None,
-            currency_api_key: None,
-            omdb_api_key:     None,
-            unsplash_key:     None,
-            postgres:         Some("postgres://postgres@localhost/Tara".to_string()),
-        }
-    }
-}
+
 
 #[derive(Debug, Clone, PartialEq)]
 /// Error messages parsed from the file provided in the `Configuration`
