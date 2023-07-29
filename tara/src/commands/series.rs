@@ -145,7 +145,7 @@ pub(super) struct OmdbSeries {
 
 impl From<OmdbSeries> for CreateEmbed {
     fn from(value: OmdbSeries) -> Self {
-        let description = format!("{}", value.plot);
+        let description = value.plot.to_string();
         let runtime = humantime::format_duration(Duration::from_secs(
             60 * value
                 .runtime

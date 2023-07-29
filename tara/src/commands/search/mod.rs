@@ -13,7 +13,7 @@ use truncrate::TruncateToBoundary;
 use super::{common::unsplash, CommandArguments, CommandResponse, DiscordCommand};
 use crate::{
     componet::{CleanupFn, ComponentFn},
-    Error, Result,
+    defaults, Error, Result,
 };
 
 mod ddg;
@@ -112,8 +112,11 @@ impl DiscordCommand for Search {
                     (query, color, orientation)
                 };
 
-                let Some(api_key) = args.config.secrets.unsplash_key.as_ref()
-                    else {return Err(Error::FeatureDisabled("Unsplash images have been disabled".to_string()))};
+                let Some(api_key) = args.config.secrets.unsplash_key.as_ref() else {
+                    return Err(Error::FeatureDisabled(
+                        "Unsplash images have been disabled".to_string(),
+                    ));
+                };
                 let images = unsplash::UnsplashImage::search(api_key, query, color, orientation).await?;
 
                 let image = images
@@ -188,7 +191,9 @@ impl DiscordCommand for Search {
                     }
                 }
 
-                let Some(search_term) = search_term else { return Err(Error::InternalLogic) };
+                let Some(search_term) = search_term else {
+                    return Err(Error::InternalLogic);
+                };
                 let (results, url) = ddg::scrape(&search_term, result_count).await?;
 
                 // Get `result_count` number of results, create a string from it, then append a
@@ -205,9 +210,7 @@ impl DiscordCommand for Search {
                 if content.is_empty() {
                     return Err(Error::NoSearchResults(search_term));
                 }
-                let max =
-                    super::common::get_content_character_limit(command.guild_id, &args.guild_preferences)
-                        .await?;
+                let max = defaults::content_character_limit_default();
                 // Truncate content.
                 if content.len() >= max {
                     content = format!("{}…\n{url}", content.truncate_to_boundary(max));

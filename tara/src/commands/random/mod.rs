@@ -110,8 +110,11 @@ impl DiscordCommand for Random {
                 Ok(random_number(low, high, integer))
             }
             "image" => {
-                let Some(api_key) = args.config.secrets.unsplash_key.as_ref()
-                    else {return Err(Error::FeatureDisabled("Unsplash images have been disabled".to_string()))};
+                let Some(api_key) = args.config.secrets.unsplash_key.as_ref() else {
+                    return Err(Error::FeatureDisabled(
+                        "Unsplash images have been disabled".to_string(),
+                    ));
+                };
                 let image = &unsplash::UnsplashImage::random(api_key).await?;
                 let embed: CreateEmbed = image.into();
 

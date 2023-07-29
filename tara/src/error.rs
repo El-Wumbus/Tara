@@ -55,17 +55,14 @@ pub enum Error {
     #[error("JSONParseError: {0}")]
     JsonParse(String),
 
-    #[error("RonParseError: {0}")]
-    RonParse(String),
-
     #[error("WikipedaSearch: Page not found for \"{0}\"")]
     WikipedaSearch(String),
 
     #[error("RedisError: {0}")]
     RedisError(String),
 
-    #[error("NoDatabaseRecordError")]
-    NoDatabaseRecord,
+    #[error("DatabaseError: {0}")]
+    Database(Box<sqlx::Error>),
 
     #[error("InternalLogicError: Something's wrong on this end! Sorry.")]
     InternalLogic,
@@ -118,18 +115,14 @@ impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self { Self::Io(value) }
 }
 
-impl From<ron::de::SpannedError> for Error {
-    fn from(value: ron::de::SpannedError) -> Self { Self::RonParse(value.to_string()) }
-}
-
-impl From<ron::Error> for Error {
-    fn from(value: ron::Error) -> Self { Self::RonParse(value.to_string()) }
+impl From<sqlx::Error> for Error {
+    fn from(value: sqlx::Error) -> Self { Self::Database(Box::new(value)) }
 }
 
 impl Error {
     const fn _code(&self) -> u8 {
         match self {
-            Error::NoDatabaseRecord => 0,
+            Error::Database(_) => 0,
             Error::ClientInitialization(_) => 1,
             Error::Io(_) => 2,
             Error::MissingConfigurationFile => 3,
@@ -140,7 +133,6 @@ impl Error {
             Error::CommandMisuse(_) => 8,
             Error::JsonParse(_) => 9,
             Error::WikipedaSearch(_) => 10,
-            Error::RonParse(_) => 11,
             Error::Unexpected(_) => 12,
             Error::RedisError(_) => 13,
             Error::InternalLogic => 14,

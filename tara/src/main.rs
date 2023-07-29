@@ -1,20 +1,16 @@
 #![feature(const_trait_impl, stmt_expr_attributes, type_alias_impl_trait, async_closure)]
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc};
 
-use serenity::{
-    all::{Command, Guild, Interaction, Ready},
-    async_trait, client,
-    gateway::ActivityData,
-    prelude::*,
-    Client,
-};
+use anyhow::Context as AnyhowContextWtfRust;
+use serenity::{all::*, async_trait, client, gateway::ActivityData, prelude::Context, Client};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use structopt::{
     clap::AppSettings::{ColorAuto, ColoredHelp, VersionlessSubcommands},
     StructOpt,
 };
 use tara_util::{ipc as ipcutil, logging as logutil, paths};
 use tokio::task;
-use tracing::{debug, error, info, metadata::LevelFilter};
+use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
 
 mod error;
@@ -24,9 +20,7 @@ use crate::ipc::ActionReceiver;
 mod commands;
 mod componet;
 mod config;
-mod database;
 mod defaults;
-mod init;
 mod ipc;
 mod logging;
 
@@ -48,26 +42,15 @@ const INTENTS: GatewayIntents = GatewayIntents::GUILD_MESSAGES
     global_setting(ColoredHelp),
     global_setting(VersionlessSubcommands)
 )]
-enum Options {
-    /// Manage Tara's configuration
-    Config(SubOptionConfig),
+struct Options {
+    #[structopt(long)]
+    /// Specify a configuration file to use instead of the default.
+    config: Option<PathBuf>,
 
-    /// Start Tara.
-    Daemon {
-        #[structopt(long)]
-        /// Specify a configuration file to use instead of the default.
-        config: Option<PathBuf>,
-
-        #[structopt(short, long, name = "LOGLEVEL")]
-        log_level: Option<LogLevel>,
-    },
+    #[structopt(short, long, name = "LOGLEVEL")]
+    log_level: Option<LogLevel>,
 }
 
-#[derive(StructOpt, Debug, Clone)]
-enum SubOptionConfig {
-    /// Create configuration files with a user-provided configuration.
-    Init,
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 enum LogLevel {
@@ -127,23 +110,9 @@ impl serenity::prelude::TypeMapKey for HttpKey {
 }
 
 #[tokio::main(flavor = "multi_thread")]
-async fn main() -> std::result::Result<(), anyhow::Error> {
-    match Options::from_args() {
-        Options::Daemon { config, log_level } => daemon(config, log_level).await?,
-        Options::Config(option) => {
-            match option {
-                SubOptionConfig::Init => init::init().await?,
-            }
-        }
-    }
+async fn main() -> anyhow::Result<()> {
+    let Options { config, log_level } = Options::from_args();
 
-    Ok(())
-}
-
-async fn daemon(
-    config_path: Option<PathBuf>,
-    log_level: Option<LogLevel>,
-) -> std::result::Result<(), anyhow::Error> {
     // Setup logging
     let log_level: LevelFilter = log_level.unwrap_or_default().into();
     let filter = EnvFilter::builder()
@@ -153,50 +122,41 @@ async fn daemon(
         .with(tracing_subscriber::fmt::layer().with_filter(filter))
         .init();
 
-    // Get the configuration file path and read the configuration from it.
-    let config_path = match config_path {
-        Some(x) => x,
-        None => {
-            paths::TARA_CONFIGURATION_FILE
-                .clone()
-                .ok_or(Error::MissingConfigurationFile)?
+    tokio::task::spawn_blocking(|| {
+        match dotenvy::dotenv() {
+            // This is stupid.
+            Ok(_) => {}
+            Err(dotenvy::Error::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e).context("Failed reading .env file"),
         }
-    };
-    let config = Arc::new(config::Configuration::from_toml(&config_path).await?);
-    debug!("Loaded configuration from \"{}\"", config_path.display());
+        anyhow::Ok(())
+    })
+    .await??;
+    let config = Arc::new(config::Configuration::parse(config).await?);
 
-    // Get error messsages
-    let error_messages = load_error_messages(config.clone());
-
-    let guilds = match database::Guilds::load().await {
-        Err(_) => database::Guilds::create().await?,
-        Ok(x) => x,
-    };
+    let postgres = config
+        .secrets
+        .postgres
+        .as_deref()
+        .context("Gimme a postgres database please!")?;
+    let database = PgPoolOptions::new().connect(postgres).await?;
+    sqlx::migrate!("./migrations")
+        .run(&database)
+        .await
+        .context("Couldn't run database migrations!")?;
 
     let logger = logutil::CommandLogger::new();
-
-    let mut client = build_client(
-        config.secrets.token.clone(),
-        EventHandler {
-            guilds: guilds.clone(),
-            config,
-            logger: logger.clone(),
-            error_messages: error_messages.await,
-            component_map: componet::ComponentMap::new(),
-        },
-    )
-    .await?;
-
-    task::spawn(async move {
+    task::spawn({
         let logger = logger.clone();
-        if let Err(e) = logger.log_to_file(paths::TARA_COMMAND_LOG_PATH.as_path()).await {
-            error!("LOGGING: {e}");
-        };
+        async move {
+            if let Err(e) = logger.log_to_file(paths::TARA_COMMAND_LOG_PATH.as_path()).await {
+                error!("LOGGING: {e}");
+            };
+        }
     });
     info!("Initialized command logger");
 
     let receiver = Arc::new(ActionReceiver {});
-
     task::spawn(async move {
         let receiver = receiver.clone();
         if let Err(e) = ipcutil::start_server(receiver.as_ref()).await {
@@ -204,6 +164,23 @@ async fn daemon(
         };
     });
     info!("Initialized IPC server");
+
+    let event_handler = EventHandler {
+        config: config.clone(),
+        logger: logger.clone(),
+        error_messages: load_error_messages(config.clone()).await,
+        component_map: componet::ComponentMap::new(),
+        database,
+    };
+    let mut client = build_client(
+        config
+            .secrets
+            .token
+            .clone()
+            .context("Why didn't you provide a discord token?")?,
+        event_handler,
+    )
+    .await?;
 
     let _ = client.start().await.map_err(|why| error!("Error: {:?}", why));
 
@@ -238,8 +215,8 @@ async fn build_client(
 struct EventHandler {
     config:         Arc<config::Configuration>,
     error_messages: Arc<config::ErrorMessages>,
+    database:       Pool<Postgres>,
     logger:         logutil::CommandLogger,
-    guilds:         database::Guilds,
     component_map:  componet::ComponentMap,
 }
 
@@ -256,8 +233,8 @@ impl client::EventHandler for EventHandler {
                     context: Arc::new(context),
                     guild,
                     config: self.config.clone(),
-                    guild_preferences: self.guilds.clone(),
                     component_map: self.component_map.clone(),
+                    database: self.database.clone(),
                 };
 
                 let id = component.data.custom_id.clone();
@@ -275,10 +252,10 @@ impl client::EventHandler for EventHandler {
                     command,
                     guild,
                     self.config.clone(),
-                    self.guilds.clone(),
                     self.error_messages.clone(),
                     self.logger.clone(),
                     self.component_map.clone(),
+                    self.database.clone(),
                 )
                 .await;
             }
@@ -304,17 +281,33 @@ impl client::EventHandler for EventHandler {
         // On startup we check, for each guild we're in, if the guild if present in the
         // database. If it's not, we add it with the default configuration.
         let guilds = ready.guilds.iter().map(|x| x.id);
+
         for guild_id in guilds {
-            if self.guilds.contains(guild_id).await {
-                // Insert the guild
-                self.guilds
-                    .insert(database::GuildPreferences::default(guild_id))
-                    .await;
-            }
+            let guild_name = context.cache.guild(guild_id).map(|x| x.name.clone());
+            let insert = if let Some(guild_name) = guild_name {
+                sqlx::query!(
+                    "INSERT INTO guilds (id, name) VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING",
+                    guild_id.toint(),
+                    guild_name
+                )
+                .execute(&self.database)
+                .await
+            } else {
+                sqlx::query!(
+                    "INSERT INTO guilds (id) VALUES ($1)
+                    ON CONFLICT DO NOTHING",
+                    guild_id.0.toint()
+                )
+                .execute(&self.database)
+                .await
+            };
+
+            if let Err(e) = insert {
+                error!("DATABASE: {e}");
+            };
         }
-        if let Err(e) = self.guilds.save().await {
-            error!("Couldn't save guild preferences to database: {e}");
-        }
+
 
         let component_map = self.component_map.clone();
         let http = context.http.clone();
@@ -327,6 +320,33 @@ impl client::EventHandler for EventHandler {
     }
 }
 
+trait IdUtil: Copy {
+    fn touint(self) -> u64;
+    fn toint(self) -> i64;
+}
+
+impl IdUtil for NonZeroU64 {
+    #[inline]
+    fn touint(self) -> u64 { u64::from(self) }
+
+    #[inline]
+    fn toint(self) -> i64 { self.touint() as i64 }
+}
+
+macro_rules! impl_id_trait {
+    ($($t: ident), *) => {
+        $(impl IdUtil for $t {
+            #[inline]
+            fn touint(self) -> u64 { self.0.touint() }
+
+            #[inline]
+            fn toint(self) -> i64 { self.0.toint() }
+        })*
+
+    };
+}
+
+impl_id_trait!(GuildId, RoleId, ChannelId);
 
 /// Returns a structure of error message responses from and `error_message` file
 /// possibly specified in `config`.

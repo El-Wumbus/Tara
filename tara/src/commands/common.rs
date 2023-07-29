@@ -1,15 +1,11 @@
+use std::num::NonZeroU64;
+
 use serenity::{
-    all::{CommandDataOption, CommandDataOptionValue, CommandInteraction, GuildId},
+    all::{CommandDataOption, CommandDataOptionValue, CommandInteraction, RoleId},
     builder::{CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
 };
 use tracing::{event, Level};
-
-use super::Result;
-use crate::{
-    database::{self, GuildPreferences},
-    defaults,
-};
 
 #[must_use]
 /// Gets the suboptions of a subcommand or subcommandgroup.
@@ -27,24 +23,6 @@ pub fn suboptions(option: &CommandDataOption) -> &Vec<CommandDataOption> {
         _ => (),
     }
     val.unwrap()
-}
-
-pub async fn get_content_character_limit(
-    guild_id: Option<GuildId>,
-    guild_prefs: &database::Guilds,
-) -> Result<usize> {
-    // Get the max from the guild's configuration. If we're not in a guild then we
-    // use the default.
-    if let Some(guild_id) = guild_id {
-        if !guild_prefs.contains(guild_id).await {
-            // Insert default data
-            guild_prefs.insert(GuildPreferences::default(guild_id)).await;
-        }
-
-        Ok(guild_prefs.get(guild_id).await.unwrap().content_character_limit)
-    } else {
-        Ok(defaults::content_character_limit_default())
-    }
 }
 
 #[must_use]
@@ -309,4 +287,14 @@ pub mod unsplash {
             embed
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ExistingRole {
+    pub(super) id: i64,
+}
+
+impl ExistingRole {
+    #[inline]
+    pub(super) fn id(self) -> RoleId { RoleId(NonZeroU64::new(self.id as u64).unwrap()) }
 }

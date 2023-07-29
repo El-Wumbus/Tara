@@ -7,10 +7,11 @@ use serenity::{
     builder::CreateCommand,
     prelude::Context,
 };
+use sqlx::{Pool, Postgres};
 use tara_util::logging::CommandLogger;
 use tracing::info;
 
-use crate::{commands::common::CommandResponse, componet, config, database, logging, Result};
+use crate::{commands::common::CommandResponse, componet, config, logging, Result};
 
 mod common;
 mod conversions;
@@ -63,11 +64,11 @@ lazy_static! {
 
 #[derive(Clone)]
 pub struct CommandArguments {
-    pub(super) context:           Arc<Context>,
-    pub(super) guild:             Option<Guild>,
-    pub(super) config:            Arc<config::Configuration>,
-    pub(super) guild_preferences: database::Guilds,
-    pub(super) component_map:     componet::ComponentMap,
+    pub(super) context:       Arc<Context>,
+    pub(super) guild:         Option<Guild>,
+    pub(super) config:        Arc<config::Configuration>,
+    pub(super) component_map: componet::ComponentMap,
+    pub(super) database:      Pool<Postgres>,
 }
 
 
@@ -94,10 +95,10 @@ pub async fn run_command(
     command: CommandInteraction,
     guild: Option<Guild>,
     config: Arc<config::Configuration>,
-    guild_preferences: database::Guilds,
     error_messages: Arc<config::ErrorMessages>,
     logger: CommandLogger,
     component_map: componet::ComponentMap,
+    database: Pool<Postgres>,
 ) {
     let command_event = logging::logged_command_event_from_interaction(&context.cache, &command);
     logger.enqueue(command_event).await;
@@ -106,8 +107,8 @@ pub async fn run_command(
     // Search the command name in the HashMap of commands (`COMMANDS`)
     let Some(cmd) = COMMANDS.get(command_name) else {
         CommandResponse::EphemeralString(format!("Command \"{command_name}\" doesn't exist."))
-        .send(&command, &context.http)
-        .await;
+            .send(&command, &context.http)
+            .await;
 
         return;
     };
@@ -118,8 +119,8 @@ pub async fn run_command(
         context: context.clone(),
         guild,
         config: config.clone(),
-        guild_preferences,
         component_map,
+        database,
     };
 
     // Run the command.

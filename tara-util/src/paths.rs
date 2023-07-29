@@ -6,7 +6,6 @@ use lazy_static::lazy_static;
 
 #[cfg(target_os = "linux")]
 mod defaults {
-    pub const FALLBACK_DATABASE_DIRECTORY: &str = "/var/db/tara/";
     pub const FALLBACK_CONFIG_FILE: &str = "/etc/tara.d/tara.toml";
     pub const FALLBACK_ERROR_MESSAGES_FILE: &str = "/etc/tara.d/error_messages.json";
     pub const FALLBACK_SOCKET_DIRECTORY: &str = "/var";
@@ -55,32 +54,6 @@ pub static ref TARA_CONFIGURATION_FILE: Option<PathBuf> = {
 ///
 /// ## Linux
 ///
-/// 1. `$XDG_DATA_HOME/Tara` or `$HOME/.local/share/Tara/`
-/// 2. `/var/db/tara/`
-///
-/// ## macOS
-///
-/// 1. `$HOME/Library/Application Support/com.github.El-Wumbus.Tara/`
-///
-/// ## Windows
-///
-/// 1. `%APPDATA%\Tara\data`
-pub static ref TARA_DATABASE_DIR: Option<PathBuf> = {
-    let mut paths = Vec::with_capacity(2);
-    if let Some(project_dirs) = TARA_PROJECT_DIR.as_ref() {
-        paths.push(PathBuf::from(project_dirs.data_dir()));
-    }
-    if !defaults::FALLBACK_DATABASE_DIRECTORY.is_empty() {
-        paths.push(PathBuf::from(defaults::FALLBACK_DATABASE_DIRECTORY));
-    }
-
-    paths.into_iter().next()
-};
-
-/// # File Locations
-///
-/// ## Linux
-///
 /// 1. `$XDG_CONFIG_HOME/Tara/error_messages.json` or
 /// `$HOME/.config/Tara/error_messages.json`
 /// 2. `/etc/tara.d/error_messages.json`
@@ -121,10 +94,10 @@ pub static ref TARA_IPC_SOCKET_FILE: String = {
 
     if create_namespaced {
         #[cfg(target_family = "windows")]
-        unimplemented!("Windows support is difficult because windows is designed poorly. Please host on Linux, macOS, or some other UNIX!");
+        unimplemented!("Please host on Linux, macOS, or some other UNIX!");
         #[cfg(not(target_family = "windows"))]
         unreachable!();
-    } else if cfg!(target_family = "windows") { // This will never happen
+    } else if cfg!(target_family = "windows") { // This is unlikely to happen
         if let Some(socket) = TARA_PROJECT_DIR
             .as_ref()
             .map(|x| x.data_dir().join(SOCKET_NAME).to_string_lossy().to_string())

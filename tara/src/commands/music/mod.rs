@@ -91,15 +91,21 @@ impl DiscordCommand for Music {
             ));
         }
 
-        let Some(guild) = args.guild else {return Err(Error::InternalLogic)};
+        let Some(guild) = args.guild else {
+            return Err(Error::InternalLogic);
+        };
         let option = &command.data.options[0];
         let manager = songbird::get(&args.context).await.unwrap();
         match &*option.name {
             "play" => {
                 // Get the url
                 let mut options = common::suboptions(option).iter();
-                let Some(url_option) = options.next() else {return Err(Error::InternalLogic)};
-                let Some(url) = url_option.value.as_str() else {return Err(Error::InternalLogic)};
+                let Some(url_option) = options.next() else {
+                    return Err(Error::InternalLogic);
+                };
+                let Some(url) = url_option.value.as_str() else {
+                    return Err(Error::InternalLogic);
+                };
 
                 // Check the url is a youtube url
                 if !youtube::YOUTUBE_REGEX.is_match(url) {
@@ -146,7 +152,10 @@ async fn play(
             let Some(voice_channel_id) = guild
                 .voice_states
                 .get(&command.user.id)
-                .and_then(|voice_state| voice_state.channel_id) else {return Err(Error::CommandMisuse("You're not in a voice channel!".to_string()))};
+                .and_then(|voice_state| voice_state.channel_id)
+            else {
+                return Err(Error::CommandMisuse("You're not in a voice channel!".to_string()));
+            };
 
             // We send a progress message then edit it later because discord only gives us 3 seconds
             // to reply to a slash command.

@@ -83,10 +83,11 @@ impl DiscordCommand for Conversions {
             "temperature" => {
                 let options = suboptions(option);
                 // Get the options
-                let(
-                    CommandDataOptionValue::String(input),
-                    CommandDataOptionValue::String(output),
-                ) = (&options[0].value, &options[1].value) else { return Err(Error::InternalLogic) };
+                let (CommandDataOptionValue::String(input), CommandDataOptionValue::String(output)) =
+                    (&options[0].value, &options[1].value)
+                else {
+                    return Err(Error::InternalLogic);
+                };
                 let input = input.trim().to_lowercase();
                 let output = output.trim().to_lowercase();
 
@@ -107,10 +108,11 @@ impl DiscordCommand for Conversions {
 
                 let options = suboptions(option);
                 // Get the options
-                let(
-                    CommandDataOptionValue::String(input),
-                    CommandDataOptionValue::String(output),
-                ) = (&options[0].value, &options[1].value) else { return Err(Error::InternalLogic) };
+                let (CommandDataOptionValue::String(input), CommandDataOptionValue::String(output)) =
+                    (&options[0].value, &options[1].value)
+                else {
+                    return Err(Error::InternalLogic);
+                };
                 let input = input.trim().to_lowercase();
 
                 let converter = match CURRENCY_CONVERTER.lock().await.clone() {

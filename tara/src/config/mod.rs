@@ -1,4 +1,7 @@
+use std::{env, path::Path};
+
 use serde::{Deserialize, Serialize};
+use tara_util::paths;
 use tokio::fs;
 
 use crate::{Error, Result};
@@ -6,29 +9,35 @@ use crate::{Error, Result};
 pub mod music;
 
 /// Configurations required to host the bot
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration {
     pub secrets:              ConfigurationSecrets,
     pub random_error_message: ConfigurationRandomErrorMessages,
     pub music:                Option<music::Music>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 /// API keys and other secrets
 pub struct ConfigurationSecrets {
-    /// Discord bot token
-    pub token: String,
-
-    /// API key for access to `currencyapi.com`
+    /// Discord bot token (overridden at runtime by the `TARA_TOKEN` env variable if
+    /// present).
+    pub token:            Option<String>,
+    /// Postgres Database URL (overridden at runtime by the `TARA_POSTGRES` env variable
+    /// if present).
+    pub postgres:         Option<String>,
+    /// API key for access to `currencyapi.com` (overridden at runtime by the
+    /// `TARA_CURRENCY_KEY` env variable if present).
     pub currency_api_key: Option<String>,
+    /// API key for access to OMDb (overridden at runtime by the
+    /// `TARA_OMDB_KEY` env variable if present), this is completely optional, if
+    /// it's not provided builtin ones will be used instead.
     pub omdb_api_key:     Option<String>,
+    /// API key for access to Unsplash (overridden at runtime by the
+    /// `TARA_UNSPLASH_KEY` env variable if present).
     pub unsplash_key:     Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 /// If, and where, to find error messages to randomly select from.
 pub enum ConfigurationRandomErrorMessages {
@@ -37,7 +46,8 @@ pub enum ConfigurationRandomErrorMessages {
 }
 
 impl Configuration {
-    /// Read a `Configuration` from toml located at `path`.
+    /// Read a `Configuration` from toml located at `path`, anything not found in the file
+    /// will be grabbed from the corresponding environment variables.
     ///
     /// # Usage
     ///
@@ -46,7 +56,7 @@ impl Configuration {
     /// # use tara::config::Configuration;
     /// # tokio_test::block_on(async {
     /// let file = PathBuf::from("config.toml");
-    /// let config = Configuration::from_toml(file).await.unwrap();
+    /// let config = Configuration::parse(file).await.unwrap();
     /// dbg!(config);
     /// # });
     /// ```
@@ -57,16 +67,52 @@ impl Configuration {
     ///
     /// - `Path` cannoth be read from successfully
     /// - `Path`'s contents cannot be parsed into a `Configuration`
-    pub async fn from_toml(path: impl Into<std::path::PathBuf>) -> Result<Self> {
-        let path = path.into();
-        let file_contents = fs::read_to_string(&path).await.map_err(Error::Io)?;
-        let parsed = toml::from_str(&file_contents).map_err(|e| {
-            Error::ConfigurationParse {
-                path,
-                error: Box::new(e),
-            }
-        })?;
-        Ok(parsed)
+    pub async fn parse(path: Option<impl AsRef<Path>>) -> anyhow::Result<Self> {
+        // Get the configuration file path and read the configuration from it.
+        let path = path
+            .as_ref()
+            .map(|x| x.as_ref())
+            .or_else(|| paths::TARA_CONFIGURATION_FILE.as_ref().map(|x| x.as_path()));
+
+        let Self {
+            secrets:
+                ConfigurationSecrets {
+                    token,
+                    postgres,
+                    currency_api_key,
+                    omdb_api_key,
+                    unsplash_key,
+                },
+            random_error_message,
+            music,
+        } = if let Some(path) = path {
+            let file_contents = fs::read_to_string(path).await.map_err(Error::Io)?;
+            tracing::info!("Loaded configuration from \"{}\"", path.display());
+            let parsed: Self = toml::from_str(&file_contents).map_err(|e| {
+                Error::ConfigurationParse {
+                    path:  path.to_path_buf(),
+                    error: Box::new(e),
+                }
+            })?;
+            parsed
+        } else {
+            Self::default()
+        };
+
+        let config = Self {
+            secrets: ConfigurationSecrets {
+                token:            env::var("TARA_TOKEN").ok().or(token),
+                postgres:         env::var("TARA_POSTGRES").ok().or(postgres),
+                currency_api_key: env::var("TARA_CURRENCY_KEY").ok().or(currency_api_key),
+                omdb_api_key:     env::var("TARA_OMDB_KEY").ok().or(omdb_api_key),
+                unsplash_key:     env::var("TARA_UNSPLASH_KEY").ok().or(unsplash_key),
+            },
+            random_error_message,
+            music,
+        };
+
+        tracing::debug!("Parsed config: {config:#?}");
+        Ok(config)
     }
 }
 
@@ -74,26 +120,12 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             secrets:              ConfigurationSecrets::default(),
-            random_error_message: ConfigurationRandomErrorMessages::Boolean(true),
+            random_error_message: ConfigurationRandomErrorMessages::Boolean(false),
             music:                Some(music::Music::default()),
         }
     }
 }
 
-impl ConfigurationSecrets {
-    const DEFAULT_DISCORD_TOKEN: &str = "<DISCORD_TOKEN>";
-}
-
-impl Default for ConfigurationSecrets {
-    fn default() -> Self {
-        Self {
-            token:            Self::DEFAULT_DISCORD_TOKEN.to_string(),
-            currency_api_key: None,
-            omdb_api_key:     None,
-            unsplash_key:     None,
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 /// Error messages parsed from the file provided in the `Configuration`
