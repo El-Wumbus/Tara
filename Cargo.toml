@@ -15,6 +15,10 @@ codegen-units = 1
 [profile.dist]
 inherits = "release"
 
+[profile.dev.package.ggml-sys] # So it's not too slow
+opt-level = 3
+
+
 # Config for 'cargo dist'
 [workspace.metadata.dist]
 # The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)

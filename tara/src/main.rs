@@ -1,5 +1,5 @@
-#![feature(const_trait_impl, stmt_expr_attributes, type_alias_impl_trait, async_closure)]
-use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc};
+#![feature(stmt_expr_attributes, type_alias_impl_trait, result_flattening, let_chains)]
+use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::Context as AnyhowContextWtfRust;
 use serenity::{all::*, async_trait, client, gateway::ActivityData, prelude::Context, Client};
@@ -10,8 +10,8 @@ use structopt::{
 };
 use tara_util::{ipc as ipcutil, logging as logutil, paths};
 use tokio::task;
-use tracing::{error, info, metadata::LevelFilter};
-use tracing_subscriber::{prelude::*, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing::{debug, error, info, Level};
+use tracing_subscriber::{filter, prelude::*, Layer};
 
 mod error;
 pub use error::{Error, Result};
@@ -22,6 +22,7 @@ mod componet;
 mod config;
 mod defaults;
 mod ipc;
+mod llm;
 mod logging;
 
 const NAME: &str = "Tara";
@@ -68,12 +69,12 @@ impl FromStr for LogLevel {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match &*s.to_lowercase() {
-            "error" => Ok(Self::Error),
-            "warn" => Ok(Self::Warn),
-            "info" => Ok(Self::Info),
-            "debug" => Ok(Self::Debug),
-            "trace" => Ok(Self::Trace),
-            "off" => Ok(Self::Off),
+            "e" | "error" => Ok(Self::Error),
+            "w" | "warn" => Ok(Self::Warn),
+            "i" | "info" => Ok(Self::Info),
+            "d" | "debug" => Ok(Self::Debug),
+            "t" | "trace" => Ok(Self::Trace),
+            "o" | "off" => Ok(Self::Off),
             _ => {
                 Err(format!(
                     "\"{s}\" isn't a LogLevel variant. They are as follows: Error, Warn, Info, Debug, \
@@ -84,7 +85,7 @@ impl FromStr for LogLevel {
     }
 }
 
-impl From<LogLevel> for LevelFilter {
+impl From<LogLevel> for filter::LevelFilter {
     fn from(value: LogLevel) -> Self {
         match value {
             LogLevel::Error => Self::ERROR,
@@ -112,14 +113,23 @@ impl serenity::prelude::TypeMapKey for HttpKey {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     let Options { config, log_level } = Options::from_args();
-
-    // Setup logging
-    let log_level: LevelFilter = log_level.unwrap_or_default().into();
-    let filter = EnvFilter::builder()
-        .with_default_directive(log_level.into())
-        .parse("")?;
+    let log_level = log_level.unwrap_or(LogLevel::Info);
+    let stdout = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_file(false)
+        .with_line_number(false);
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().with_filter(filter))
+        .with(
+            stdout
+                .with_filter(filter::LevelFilter::from(log_level))
+                .with_filter(filter::filter_fn(|metadata| {
+                    metadata.target().starts_with("tara") || {
+                        let level: Level = *metadata.level();
+                        (level == Level::WARN || level == Level::ERROR)
+                            && metadata.target().starts_with("serenity")
+                    }
+                })),
+        )
         .init();
 
     tokio::task::spawn_blocking(|| {
@@ -165,12 +175,29 @@ async fn main() -> anyhow::Result<()> {
     });
     info!("Initialized IPC server");
 
+    let mut llm_channel = None;
+    if let Some(llm_config) = config.ai.as_ref().and_then(|x| x.llm.clone()) {
+        debug!("LLM configuration: {llm_config:#?}");
+        let (mut llm, discord_message_tx) = llm::Llm::new(llm_config).await?;
+        tokio::spawn(async move {
+            if let Err(e) = llm.spawn().await {
+                error!("LLM erorr: {e}");
+            };
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        llm_channel = Some(discord_message_tx.clone());
+        info!("Initialized LLM");
+    } else {
+        debug!("Not initializing LLM");
+    }
+
     let event_handler = EventHandler {
         config: config.clone(),
         logger: logger.clone(),
         error_messages: load_error_messages(config.clone()).await,
         component_map: componet::ComponentMap::new(),
         database,
+        llm_channel,
     };
     let mut client = build_client(
         config
@@ -218,6 +245,7 @@ struct EventHandler {
     database:       Pool<Postgres>,
     logger:         logutil::CommandLogger,
     component_map:  componet::ComponentMap,
+    llm_channel:    Option<flume::Sender<llm::LlmMessage>>,
 }
 
 #[async_trait]
@@ -318,7 +346,33 @@ impl client::EventHandler for EventHandler {
             }
         });
     }
+
+    async fn message(&self, context: Context, message: Message) {
+        match message.mentions_me(&context.http).await {
+            Ok(true) if message.kind == MessageType::InlineReply => {
+                dbg!(message.kind, &message.content);
+                // TODO: allow configuration...
+                if let Some(tx) = dbg!(self.llm_channel.clone()) {
+                    let name = &message.author.name;
+                    let content = message.content_safe(&context.cache);
+                    let message = llm::LlmMessage::new(
+                        &content,
+                        context.http.clone(),
+                        self.component_map.clone(),
+                        &message,
+                    );
+                    info!("Generating response using message from user '{name}' as a prompt: '{content}'");
+                    if let Err(e) = tx.send_async(message).await {
+                        error!("Couldn't send message to LLM task via sender: {e}");
+                    }
+                }
+            }
+            Err(e) => error!("Couldn't check if the message mentions me: {e}"),
+            _ => {}
+        }
+    }
 }
+
 
 trait IdUtil: Copy {
     fn touint(self) -> u64;
