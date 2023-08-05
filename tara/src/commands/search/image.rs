@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use component_macro::component;
 use once_cell::sync::Lazy;
 use serenity::{
     all::{ChannelId, CommandInteraction, ComponentInteraction, MessageId, ReactionType, UserId},
@@ -12,6 +13,7 @@ use serenity::{
 };
 use tokio::sync::Mutex;
 
+use crate::componet::Component;
 
 pub(super) type Umid = (ChannelId, MessageId);
 
@@ -23,16 +25,29 @@ pub(super) static IMAGE_RESULTS: Lazy<
 pub(super) static USERS: Lazy<Arc<Mutex<HashMap<UserId, Umid>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-use crate::{
-    commands::{common::unsplash, CommandArguments},
-    Result,
-};
+use crate::commands::{common::unsplash, CommandArguments};
 
-pub(super) async fn button_handler(
-    args: (ComponentInteraction, CommandArguments),
+#[component(buttons_cleanup_handler)]
+pub(super) async fn forward_button_handler(
+    interaction: ComponentInteraction,
+    args: CommandArguments,
+) -> anyhow::Result<()> {
+    button_handler(interaction, args, |x| x + 1).await
+}
+
+#[component(buttons_cleanup_handler)]
+pub(super) async fn backward_button_handler(
+    interaction: ComponentInteraction,
+    args: CommandArguments,
+) -> anyhow::Result<()> {
+    button_handler(interaction, args, |x| x - 1).await
+}
+
+async fn button_handler(
+    component: ComponentInteraction,
+    args: CommandArguments,
     f: fn(isize) -> isize,
-) -> Result<()> {
-    let (component, args) = args;
+) -> anyhow::Result<()> {
     let Some((channel_id, message_id)) = USERS.lock().await.get(&component.user.id).copied() else {
         return Ok(());
     };
@@ -78,18 +93,22 @@ pub(super) async fn button_handler(
     Ok(())
 }
 
-pub(super) async fn buttons_cleanup_handler(args: (String, Arc<Http>, Arc<Cache>)) -> Result<()> {
-    let (channel_id, message_id, _) = sscanf::sscanf!(args.0, "{u64}-{u64}-{str}").unwrap();
+pub(super) async fn buttons_cleanup_handler(
+    id: String,
+    http: Arc<Http>,
+    _cache: Arc<Cache>,
+) -> anyhow::Result<()> {
+    let (channel_id, message_id, _) = sscanf::sscanf!(id, "{u64}-{u64}-{str}").unwrap();
     let (channel_id, message_id) = (ChannelId::new(channel_id), MessageId::new(message_id));
 
     if let Some((imgs, i, command)) = IMAGE_RESULTS.lock().await.remove(&(channel_id, message_id)) {
-        let message = command.get_response(&args.1).await?;
+        let message = command.get_response(&http).await?;
         let id = format!("{}-{}", command.channel_id, message.id);
         let components = button_components(&id, i, imgs.len(), true);
 
         command
             .edit_response(
-                &args.1,
+                &http,
                 EditInteractionResponse::new()
                     .components(components)
                     .content("Disabled"),

@@ -11,10 +11,7 @@ use serenity::{
 use truncrate::TruncateToBoundary;
 
 use super::{common::unsplash, CommandArguments, CommandResponse, DiscordCommand};
-use crate::{
-    componet::{CleanupFn, ComponentFn},
-    defaults, Error, Result,
-};
+use crate::{defaults, Error, Result};
 
 mod ddg;
 mod image;
@@ -152,18 +149,10 @@ impl DiscordCommand for Search {
                     .insert((command.channel_id, message.id), (images, 0, command.clone()));
 
                 args.component_map
-                    .insert(
-                        format!("{id}-next"),
-                        ComponentFn::new(|args| image::button_handler(args, |x| x + 1)),
-                        Some(CleanupFn::new(image::buttons_cleanup_handler)),
-                    )
+                    .insert(format!("{id}-next"), &image::forward_button_handler, None)
                     .await;
                 args.component_map
-                    .insert(
-                        format!("{id}-prev"),
-                        ComponentFn::new(|args| image::button_handler(args, |x| x - 1)),
-                        Some(CleanupFn::new(image::buttons_cleanup_handler)),
-                    )
+                    .insert(format!("{id}-prev"), &image::backward_button_handler, None)
                     .await;
 
                 let mut users_lock = image::USERS.lock().await;
@@ -171,8 +160,8 @@ impl DiscordCommand for Search {
                     users_lock.insert(command.user.id, umid)
                 {
                     let id = format!("{previous_channel_id}-{previous_message_id}");
-                    args.component_map.timeout(format!("{id}-next")).await;
-                    args.component_map.timeout(format!("{id}-prev")).await;
+                    let _ = args.component_map.timeout(format!("{id}-next")).await;
+                    let _ = args.component_map.timeout(format!("{id}-prev")).await;
                 }
 
 

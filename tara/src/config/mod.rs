@@ -6,6 +6,7 @@ use tokio::fs;
 
 use crate::{Error, Result};
 
+pub mod ai;
 pub mod music;
 
 /// Configurations required to host the bot
@@ -14,6 +15,7 @@ pub struct Configuration {
     pub secrets:              ConfigurationSecrets,
     pub random_error_message: ConfigurationRandomErrorMessages,
     pub music:                Option<music::Music>,
+    pub ai:                   Option<ai::Ai>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -85,6 +87,7 @@ impl Configuration {
                 },
             random_error_message,
             music,
+            ai,
         } = if let Some(path) = path {
             let file_contents = fs::read_to_string(path).await.map_err(Error::Io)?;
             tracing::info!("Loaded configuration from \"{}\"", path.display());
@@ -109,6 +112,7 @@ impl Configuration {
             },
             random_error_message,
             music,
+            ai,
         };
 
         tracing::debug!("Parsed config: {config:#?}");
@@ -122,6 +126,7 @@ impl Default for Configuration {
             secrets:              ConfigurationSecrets::default(),
             random_error_message: ConfigurationRandomErrorMessages::Boolean(false),
             music:                Some(music::Music::default()),
+            ai:                   None,
         }
     }
 }

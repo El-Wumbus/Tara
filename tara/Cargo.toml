@@ -14,7 +14,8 @@ systemd-units = { enable = true }
 features = ["music"]
 
 [dependencies]
-tara-util = { path = "../tara-util" }
+tara-util = { path = "../lib/tara-util" }
+component-macro = { path = "../lib/component-macro" }
 tokio = { version = "1.29", features = ["macros", "rt-multi-thread"] }
 serenity = { default-features = false, features = [
     "client",
@@ -62,6 +63,7 @@ url = "2"
 sscanf = "0.4.1"
 bincode = "1.3.3"
 dotenvy = "0.15"
+indoc = "2.0.3"
 
 # Music
 songbird = { optional = true, git = "https://github.com/serenity-rs/songbird", rev = "0044728b5407aa7644153c72158aa3ee99c69bfa", features = [
@@ -78,8 +80,11 @@ youtubei-rs = { version = "1.3.5", optional = true }
 humantime = "2.1"
 uuid = { version = "1", optional = true }
 regex = { version = "1.9", optional = true }
+flume = "0.10.14"
+num_cpus = "1.16.0"
 
-
+# Ai
+llm = { git = "https://github.com/rustformers/llm.git", rev = "06ad53e", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -87,7 +92,7 @@ tokio-test = "0.4"
 [features]
 default = ["stable"]
 stable = []
-alpha = ["music"]
+alpha = ["music", "ai"]
 music = [
     "dep:songbird",
     "dep:symphonia",
@@ -95,3 +100,9 @@ music = [
     "dep:uuid",
     "dep:regex",
 ]
+ai = [
+    "dep:llm"
+]
+
+cublas = ["llm/cublas"] # GPU accleration with Cuda for LLM
+# clblast = ["llm/clblast"] # GPU accelerationOpencl

@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "tara",
-    # "tara-admin-panel",
-    "tara-util",
+    "lib/*",
 ]
 resolver = "2"
 
@@ -14,6 +13,10 @@ codegen-units = 1
 # The profile that 'cargo dist' will build with
 [profile.dist]
 inherits = "release"
+
+[profile.dev.package.ggml-sys] # So it's not too slow
+opt-level = 3
+
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
