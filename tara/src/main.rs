@@ -266,7 +266,7 @@ impl client::EventHandler for EventHandler {
                 };
 
                 let id = component.data.custom_id.clone();
-                match self.component_map.run(&id, (component, args)).await {
+                match self.component_map.run(&id, component, args).await {
                     Some(Err(e)) => {
                         tracing::error!(
                             "Error running component handler registered for component '{id}': {e}"

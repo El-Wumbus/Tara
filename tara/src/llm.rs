@@ -396,7 +396,7 @@ fn build_components(cid: ChannelId, mid: MessageId, canceling: bool) -> Vec<Crea
 }
 
 #[component]
-async fn cancel_handler((interaction, ..): (ComponentInteraction, CommandArguments)) -> anyhow::Result<()> {
+async fn cancel_handler(interaction: ComponentInteraction, _args: CommandArguments) -> anyhow::Result<()> {
     let id = interaction.message.id;
     let map = CANCELATION_MAP.lock().await;
     let sender = map

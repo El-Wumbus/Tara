@@ -14,11 +14,12 @@ type DynComponent = &'static (dyn Component + Send + Sync);
 pub trait Component {
     /// Runs whenever Discord sends a component interaction with the ID matching that
     /// registered for this [`Component`] on insertion.
-    async fn run(&self, (interaction, args): (ComponentInteraction, CommandArguments)) -> anyhow::Result<()>;
+    async fn run(&self, interaction: ComponentInteraction, args: CommandArguments) -> anyhow::Result<()>;
     /// Runs whenever the the [`Component`] is removed from the map after its timeout or
     /// after evoking [`ComponentMap::timeout`] with the ID matching that registered for
     /// this [`Component`] on insertion. By default it's a no-op.
-    async fn cleanup(&self, _args: (String, Arc<Http>, Arc<Cache>)) -> anyhow::Result<()> { Ok(()) }
+    #[allow(unused_variables)]
+    async fn cleanup(&self, id: String, http: Arc<Http>, cache: Arc<Cache>) -> anyhow::Result<()> { Ok(()) }
 }
 
 struct ComponentInner {
@@ -26,6 +27,7 @@ struct ComponentInner {
 }
 
 impl ComponentInner {
+    #[inline]
     fn new() -> Self {
         Self {
             component_map: RwLock::new(HashMap::new()),
@@ -41,11 +43,12 @@ impl ComponentInner {
     pub(self) async fn run(
         &self,
         id: &String,
-        params: (ComponentInteraction, CommandArguments),
+        interaction: ComponentInteraction,
+        args: CommandArguments,
     ) -> Option<anyhow::Result<()>> {
         let lock = self.component_map.read().await;
         let (f, _) = lock.get(id)?;
-        Some(f.run(params).await)
+        Some(f.run(interaction, args).await)
     }
 }
 
@@ -88,7 +91,7 @@ impl ComponentMap {
             for id in kill_list {
                 if let Some((f, _)) = self.inner.component_map.write().await.remove(&id) {
                     tracing::debug!("Removed component listener: {id}");
-                    f.cleanup((id.clone(), http.clone(), cache.clone())).await?;
+                    f.cleanup(id.clone(), http.clone(), cache.clone()).await?;
                 }
             }
 
@@ -106,8 +109,9 @@ impl ComponentMap {
     pub async fn run(
         &self,
         id: &String,
-        params: (ComponentInteraction, CommandArguments),
+        interaction: ComponentInteraction,
+        args: CommandArguments,
     ) -> Option<anyhow::Result<()>> {
-        self.inner.run(id, params).await
+        self.inner.run(id, interaction, args).await
     }
 }
