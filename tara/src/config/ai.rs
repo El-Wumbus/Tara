@@ -53,6 +53,7 @@ pub struct Llm {
 }
 
 impl Llm {
+    #[cfg(feature = "ai")]
     pub fn architecture(&self) -> Option<llm::ModelArchitecture> {
         self.architecture.as_ref().and_then(|x| x.parse().ok())
     }

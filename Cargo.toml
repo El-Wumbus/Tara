@@ -2,7 +2,6 @@
 members = [
     "tara",
     "lib/*",
-    # "tara-util",
 ]
 resolver = "2"
 

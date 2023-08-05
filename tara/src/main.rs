@@ -1,5 +1,5 @@
 #![feature(stmt_expr_attributes, type_alias_impl_trait, result_flattening, let_chains)]
-use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
+use std::{num::NonZeroU64, path::PathBuf, str::FromStr, sync::Arc};
 
 use anyhow::Context as AnyhowContextWtfRust;
 use serenity::{all::*, async_trait, client, gateway::ActivityData, prelude::Context, Client};
@@ -10,7 +10,7 @@ use structopt::{
 };
 use tara_util::{ipc as ipcutil, logging as logutil, paths};
 use tokio::task;
-use tracing::{debug, error, info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::{filter, prelude::*, Layer};
 
 mod error;
@@ -22,6 +22,7 @@ mod componet;
 mod config;
 mod defaults;
 mod ipc;
+#[cfg(feature = "ai")]
 mod llm;
 mod logging;
 
@@ -175,21 +176,22 @@ async fn main() -> anyhow::Result<()> {
     });
     info!("Initialized IPC server");
 
-    let mut llm_channel = None;
-    if let Some(llm_config) = config.ai.as_ref().and_then(|x| x.llm.clone()) {
-        debug!("LLM configuration: {llm_config:#?}");
+
+    #[cfg(feature = "ai")]
+    let llm_channel = if let Some(llm_config) = config.ai.as_ref().and_then(|x| x.llm.clone()) {
+        tracing::debug!("LLM configuration: {llm_config:#?}");
         let (mut llm, discord_message_tx) = llm::Llm::new(llm_config).await?;
         tokio::spawn(async move {
             if let Err(e) = llm.spawn().await {
                 error!("LLM erorr: {e}");
             };
         });
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        llm_channel = Some(discord_message_tx.clone());
         info!("Initialized LLM");
+        Some(discord_message_tx.clone())
     } else {
-        debug!("Not initializing LLM");
-    }
+        tracing::debug!("Not initializing LLM");
+        None
+    };
 
     let event_handler = EventHandler {
         config: config.clone(),
@@ -197,6 +199,7 @@ async fn main() -> anyhow::Result<()> {
         error_messages: load_error_messages(config.clone()).await,
         component_map: componet::ComponentMap::new(),
         database,
+        #[cfg(feature = "ai")]
         llm_channel,
     };
     let mut client = build_client(
@@ -245,6 +248,7 @@ struct EventHandler {
     database:       Pool<Postgres>,
     logger:         logutil::CommandLogger,
     component_map:  componet::ComponentMap,
+    #[cfg(feature = "ai")]
     llm_channel:    Option<flume::Sender<llm::LlmMessage>>,
 }
 
@@ -353,6 +357,7 @@ impl client::EventHandler for EventHandler {
         });
     }
 
+    #[cfg(feature = "ai")]
     async fn message(&self, context: Context, message: Message) {
         match message.mentions_me(&context.http).await {
             Ok(true) if message.kind == MessageType::InlineReply => {
