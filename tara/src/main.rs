@@ -266,8 +266,14 @@ impl client::EventHandler for EventHandler {
                 };
 
                 let id = component.data.custom_id.clone();
-                if let Some(Err(e)) = self.component_map.run(&id, (component, args)).await {
-                    error!("Error running component handler: {e}");
+                match self.component_map.run(&id, (component, args)).await {
+                    Some(Err(e)) => {
+                        tracing::error!(
+                            "Error running component handler registered for component '{id}': {e}"
+                        );
+                    }
+                    Some(Ok(_)) => tracing::trace!("Ran component handler registered for component '{id}'"),
+                    None => tracing::warn!("No component handler regestered for component '{id}'"),
                 };
             }
             Interaction::Command(command) => {
@@ -350,10 +356,8 @@ impl client::EventHandler for EventHandler {
     async fn message(&self, context: Context, message: Message) {
         match message.mentions_me(&context.http).await {
             Ok(true) if message.kind == MessageType::InlineReply => {
-                dbg!(message.kind, &message.content);
                 // TODO: allow configuration...
-                if let Some(tx) = dbg!(self.llm_channel.clone()) {
-                    let name = &message.author.name;
+                if let Some(tx) = self.llm_channel.clone() {
                     let content = message.content_safe(&context.cache);
                     let message = llm::LlmMessage::new(
                         &content,
@@ -361,10 +365,10 @@ impl client::EventHandler for EventHandler {
                         self.component_map.clone(),
                         &message,
                     );
-                    info!("Generating response using message from user '{name}' as a prompt: '{content}'");
-                    if let Err(e) = tx.send_async(message).await {
+                    if let Err(e) = tx.send_async(message.clone()).await {
                         error!("Couldn't send message to LLM task via sender: {e}");
                     }
+                    tracing::trace!("Sent '{message:?}' to LLM");
                 }
             }
             Err(e) => error!("Couldn't check if the message mentions me: {e}"),

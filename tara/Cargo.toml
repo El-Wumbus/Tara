@@ -14,7 +14,8 @@ systemd-units = { enable = true }
 features = ["music"]
 
 [dependencies]
-tara-util = { path = "../tara-util" }
+tara-util = { path = "../lib/tara-util" }
+component-macro = { path = "../lib/component-macro" }
 tokio = { version = "1.29", features = ["macros", "rt-multi-thread"] }
 serenity = { default-features = false, features = [
     "client",

@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "tara",
-    # "tara-admin-panel",
-    "tara-util",
+    "lib/*",
+    # "tara-util",
 ]
 resolver = "2"
 

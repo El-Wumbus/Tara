@@ -29,8 +29,8 @@ pub struct Llm {
     /// The number of layers to offload to the GPU (if `use_gpu` is on).
     /// If not set, all layers will be offloaded.
     pub gpu_layers:           Option<usize>,
-    /// The number of threads to use. **If this is `None` the number of *physical* cores will
-    /// be automatically chosen.**
+    /// The number of threads to use. **If this is `None` the number of *physical* cores
+    /// will be automatically chosen.**
     ///
     /// Note that you should aim for a value close to the number of physical cores
     /// on the system, as this will give the best performance. This means that, for
@@ -40,7 +40,7 @@ pub struct Llm {
     /// experiment with this value to find the optimal value for your use case. For
     /// example, Apple Silicon and modern Intel processors have "performance" and
     /// "efficiency" cores, and you may want to only use the performance cores.
-    pub thread_count:              Option<usize>,
+    pub thread_count:         Option<usize>,
     /// Controls batch/chunk size for prompt ingestion in [InferenceSession::feed_prompt].
     ///
     /// This is the number of tokens that will be ingested at once. This is useful for
@@ -49,7 +49,7 @@ pub struct Llm {
     /// the transformer model, so increasing the batch size will not always help.
     ///
     /// A reasonable default value is 8.
-    pub batch_size: Option<usize>,
+    pub batch_size:           Option<usize>,
 }
 
 impl Llm {

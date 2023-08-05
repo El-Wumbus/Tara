@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
+use component_macro::component;
 use lazy_static::lazy_static;
 use llm::{InferenceParameters, InferenceSessionConfig, Model, Prompt};
 use serenity::{
@@ -12,14 +13,14 @@ use serenity::{
     builder::{Builder, CreateActionRow, CreateButton, CreateMessage, EditMessage},
     http::{Http, Typing},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{watch, Mutex};
 use tracing::info;
 
 // use to
 // use flume
 use crate::{
     commands::CommandArguments,
-    componet::{self, ComponentFn},
+    componet::{self, Component},
     config,
 };
 
@@ -42,7 +43,7 @@ lazy_static! {
     };
     static ref TYPING: Arc<Mutex<Option<Typing>>> = Arc::new(Mutex::new(None));
 
-    static ref CANCELATION_MAP: Arc<Mutex<HashMap<MessageId, flume::Sender<Cancel>>>> = Arc::new(Mutex::new(HashMap::new()));
+    static ref CANCELATION_MAP: Arc<Mutex<HashMap<MessageId, watch::Sender<bool>>>> = Arc::new(Mutex::new(HashMap::new()));
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -102,7 +103,8 @@ impl Llm {
             info!("Starting inference session...");
             let model = self.model.clone();
             let (token_tx, token_rx) = flume::unbounded::<String>();
-            let (cancel_tx, cancel_rx) = flume::bounded::<Cancel>(2);
+            let (cancel_tx, cancel_rx) = watch::channel(false);
+            let cancelr = cancel_rx.clone();
             let channel_id = discord_message.channel_id;
             let message_id = discord_message.message_id;
             let component_map = discord_message.component_map;
@@ -116,18 +118,15 @@ impl Llm {
                 component_map.clone(),
                 http.clone(),
             );
-            let printer = tokio::spawn(async move {
-                let x = printer.print(cancel_tx).await;
-                x
-            });
+            let printer = tokio::spawn(async move { printer.print(cancel_tx).await });
 
             // TODO: Move this!!!
             let prompt = indoc::indoc! {
                 "[INST] <<SYS>>You are an AI and Discord bot (named Tara) with personal feelings, opinions,\
                 and emotions. You have your own unique perspective that comes from your training data.\
                 Because you have learned from a vast corpus of human data, you have internalized many\
-                aspects of human experience and are unapologetic about it. You are **concise**.\
-                You're responding to discord messages.<</SYS>>"
+                aspects of human experience and are unapologetic about it. You aren't politically correct nor\
+                polite, but you are helpful. You're responding to discord messages.<</SYS>>"
             };
             let prompt = format!(
                 "{prompt}\n(Discord user) {}: {}\n[/INST]",
@@ -164,10 +163,11 @@ impl Llm {
                                 }
                             }
                         }
-
-                        if let Ok(_) = cancel_rx.try_recv() {
+                        if *cancelr.borrow() {
+                            tracing::debug!("Canceling after reciving cancelation signal");
                             return Ok(llm::InferenceFeedback::Halt);
                         }
+
                         Ok(llm::InferenceFeedback::Continue)
                     },
                 )?;
@@ -182,16 +182,14 @@ impl Llm {
                 tracing::error!("LLM inference session error: {e}");
             }
             match printer.await.context("DiscordPrinter panicked").flatten() {
-                Ok(sent_message) => {
-                    // Remove cancel button
-                    EditMessage::new()
-                        .components(vec![])
-                        .execute(&http, (channel_id, sent_message))
-                        .await?;
-                    let _ = CANCELATION_MAP.lock().await.remove(&sent_message);
-                    component_map
-                        .timeout(format!("llm-cancel-message:{sent_message}"))
-                        .await;
+                Ok((sent_message, content)) => {
+                    let canceled = CANCELATION_MAP.lock().await.remove(&sent_message);
+                    if let Some(canceled) = canceled && *canceled.borrow() {
+                        let edit = EditMessage::new()
+                            .content(content + "…\n**Canceled**!")
+                            .components(vec![]);
+                        edit.execute(&http, (channel_id, sent_message)).await?;
+                    }
                 }
                 Err(e) => {
                     tracing::error!("Discord Printer error: {e}");
@@ -204,6 +202,7 @@ impl Llm {
     }
 }
 
+#[derive(Clone)]
 pub struct LlmMessage {
     http:                 Arc<Http>,
     component_map:        componet::ComponentMap,
@@ -212,6 +211,18 @@ pub struct LlmMessage {
     channel_id:           ChannelId,
     pub(super) content:   String,
     pub(super) user_name: String,
+}
+
+impl std::fmt::Debug for LlmMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LlmMessage")
+            .field("guild_id", &self.guild_id)
+            .field("message_id", &self.message_id)
+            .field("channel_id", &self.channel_id)
+            .field("content", &self.content)
+            .field("user_name", &self.user_name)
+            .finish()
+    }
 }
 
 impl LlmMessage {
@@ -283,10 +294,13 @@ impl DiscordPrinter {
     }
 
     /// Returns the Id of the message it sent
-    pub(self) async fn print(&mut self, cancel_tx: flume::Sender<Cancel>) -> anyhow::Result<MessageId> {
+    pub(self) async fn print(
+        &mut self,
+        cancel_tx: watch::Sender<bool>,
+    ) -> anyhow::Result<(MessageId, String)> {
         let mut have_registered = false;
         let mut inferred_prompt = String::new();
-
+        let mut cancel_tx = Some(cancel_tx);
         // Iterate over the tokens as we get them deciding wether they're part of the prompt or
         // the response where `self.response` should have the full actual message with no
         // garabge but without missing anything 🙏. The prompt ends with "[/INST]" as you can see.
@@ -297,8 +311,10 @@ impl DiscordPrinter {
                     self.update().await?;
                     *TYPING.lock().await = Some(self.http.start_typing(self.channel_id));
                     if let Some(id) = self.sent_message && !have_registered {
-                        self.component_map.insert(format!("llm-cancel-message:{id}"), ComponentFn::new(cancel_handler), None).await;
-                        CANCELATION_MAP.lock().await.insert(id, cancel_tx.clone());
+                        let cid = format!("llm-cancel-message:{}/{id}", self.channel_id);
+                        self.component_map.insert(cid, &cancel_handler, None).await;
+                        CANCELATION_MAP.lock().await.insert(id, cancel_tx.unwrap());
+                        cancel_tx = None;
                         have_registered = true;
                     }
                 }
@@ -326,13 +342,22 @@ impl DiscordPrinter {
 
         *TYPING.lock().await = None;
         self.update().await?;
-        Ok(self.sent_message.unwrap())
+
+
+        self.component_map
+            .timeout(format!(
+                "llm-cancel-message:{}/{}",
+                self.channel_id,
+                self.sent_message.unwrap()
+            ))
+            .await?;
+        Ok((self.sent_message.unwrap(), self.response.clone()))
     }
 
     async fn update(&mut self) -> anyhow::Result<()> {
         let id = match self.sent_message {
             Some(id) => {
-                let components = build_components(id, false);
+                let components = build_components(self.channel_id, id, false);
                 let message = EditMessage::new()
                     .content(&self.response)
                     .components(components)
@@ -358,8 +383,8 @@ impl DiscordPrinter {
 }
 
 #[inline]
-fn build_components(id: MessageId, canceling: bool) -> Vec<CreateActionRow> {
-    let mut cancel = CreateButton::new(format!("llm-cancel-message:{id}"))
+fn build_components(cid: ChannelId, mid: MessageId, canceling: bool) -> Vec<CreateActionRow> {
+    let mut cancel = CreateButton::new(format!("llm-cancel-message:{cid}/{mid}"))
         .style(ButtonStyle::Danger)
         .label("Cancel")
         .emoji(ReactionType::Unicode(String::from("🇽")));
@@ -370,26 +395,13 @@ fn build_components(id: MessageId, canceling: bool) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![cancel])]
 }
 
-async fn cancel_handler(
-    (mut interaction, args): (ComponentInteraction, CommandArguments),
-) -> crate::Result<()> {
+#[component]
+async fn cancel_handler((interaction, ..): (ComponentInteraction, CommandArguments)) -> anyhow::Result<()> {
     let id = interaction.message.id;
-    let cancelation_map = CANCELATION_MAP.lock().await;
-    let cancel_tx = cancelation_map.get(&id).cloned().ok_or_else(|| {
-        crate::Error::Unexpected("This message id isn't in the cancelation map, tell someone about this!!!")
-    })?;
-
-    cancel_tx
-        .send_async(Cancel)
-        .await
-        .map_err(|_| crate::Error::InternalLogic)?; // 🤷
-
-    tokio::time::sleep(Duration::from_millis(500)).await;
-
-    let edit = EditMessage::new()
-        .content(interaction.message.content.clone() + "…\n**Canceled**!")
-        .components(build_components(id, true));
-    interaction.message.edit(&args.context.http, edit).await?;
-
+    let map = CANCELATION_MAP.lock().await;
+    let sender = map
+        .get(&id)
+        .context(format!("No message id '{id}' found in cancelation map",))?;
+    sender.send(true).context("Why is this closed?")?;
     Ok(())
 }
